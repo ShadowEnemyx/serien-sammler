@@ -1,8 +1,8 @@
-# Serien-Sammler für HandBrake
+# Serien-Sammler
 
 [English README](README.md)
 
-Eine kleine macOS-App, die Folgen einer Serie aus vielen Unterordnern in einem einzigen Ordner sammelt. So kann der fertige Serienordner direkt in HandBrake gezogen werden.
+Eine kleine macOS-App, die Folgen einer Serie aus vielen Unterordnern in einem einzigen Ordner sammelt.
 
 Die Originaldateien werden ausschließlich **kopiert**, nie verschoben oder gelöscht.
 

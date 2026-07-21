@@ -24,7 +24,7 @@ APPLESCRIPT
 SERIES_NAME=$(
   /usr/bin/osascript <<'APPLESCRIPT'
 try
-  text returned of (display dialog "Name der Serie eingeben:" default answer "" buttons {"Abbrechen", "Suchen"} default button "Suchen" cancel button "Abbrechen" with title "Serien-Sammler für HandBrake")
+  text returned of (display dialog "Name der Serie eingeben:" default answer "" buttons {"Abbrechen", "Suchen"} default button "Suchen" cancel button "Abbrechen" with title "Serien-Sammler")
 on error number -128
   return ""
 end try

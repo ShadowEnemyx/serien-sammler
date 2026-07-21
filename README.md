@@ -1,8 +1,8 @@
-# Series Collector for HandBrake
+# Series Collector
 
 [Deutsche Anleitung](README.de.md)
 
-A small macOS app that collects episodes of a TV series from many subfolders into one folder. The resulting series folder can then be dropped directly into HandBrake.
+A small macOS app that collects episodes of a TV series from many subfolders into one folder.
 
 Original files are only **copied** — never moved or deleted.
 
