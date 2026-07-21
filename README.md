@@ -38,3 +38,7 @@ Die Suche ignoriert Punkte, Kommas, Leerzeichen und Bindestriche. Die Eingabe `G
    ```
 
 Danach können andere Personen das Repository als ZIP herunterladen. Die Ordner werden bei jedem Start über Finder-Auswahldialoge festgelegt, daher muss niemand den Code bearbeiten.
+
+## Lizenz
+
+Dieses Projekt steht unter der [MIT-Lizenz](LICENSE). Es darf genutzt, verändert und weitergegeben werden, solange der Lizenzhinweis erhalten bleibt.
