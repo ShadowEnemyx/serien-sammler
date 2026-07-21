@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -50,6 +51,19 @@ def matching_videos(source: Path, keyword: str) -> list[Path]:
     )
 
 
+def open_folder(folder: Path) -> None:
+    """Öffnet den Zielordner im Dateimanager des jeweiligen Betriebssystems."""
+    try:
+        if sys.platform == "darwin":
+            subprocess.run(["open", str(folder)], check=False)
+        elif os.name == "nt":
+            os.startfile(str(folder))
+        elif shutil.which("xdg-open"):
+            subprocess.run(["xdg-open", str(folder)], check=False)
+    except OSError:
+        pass
+
+
 def collect_series(name_input: str, source: Path, destination: Path) -> int:
     series_name = folder_name(name_input)
     if not series_name:
@@ -79,7 +93,7 @@ def collect_series(name_input: str, source: Path, destination: Path) -> int:
 
     if copied:
         print(f"\nFertig: {copied} Datei(en) liegen jetzt in: {target}")
-        subprocess.run(["open", str(target)], check=False)
+        open_folder(target)
     if errors:
         print(f"\n{len(errors)} Datei(en) konnten nicht kopiert werden:", file=sys.stderr)
         print("\n".join(errors), file=sys.stderr)

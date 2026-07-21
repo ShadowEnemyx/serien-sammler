@@ -16,6 +16,14 @@ Die Originaldateien werden ausschließlich **kopiert**, nie verschoben oder gel�
 
 Die Suche ignoriert Punkte, Kommas, Leerzeichen und Bindestriche. `Ghost Whisperer` findet deshalb auch `Ghost.Whisperer...`, `Ghost-Whisperer...` und `GhostWhisperer...`. macOS-Metadateien mit `._` werden nicht kopiert. Bei gleichen Dateinamen wird nichts überschrieben; stattdessen wird ` (2)`, ` (3)` usw. angehängt.
 
+## Verwendung unter Windows
+
+1. Python 3 von [python.org](https://www.python.org/downloads/windows/) installieren. Bei der Installation **Add Python to PATH** aktivieren.
+2. `Serien-Sammler.bat` per Doppelklick starten.
+3. Suchordner und Zielordner auswählen sowie den Seriennamen eingeben.
+
+Der fertige Serienordner öffnet sich automatisch im Windows-Explorer.
+
 ## Start im Terminal
 
 ```bash

@@ -16,6 +16,14 @@ Original files are only **copied** — never moved or deleted.
 
 The search ignores differences in periods, commas, spaces, and hyphens. Searching for `Ghost Whisperer` therefore also finds files named `Ghost.Whisperer...`, `Ghost-Whisperer...`, and `GhostWhisperer...`. macOS metadata files starting with `._` are skipped. Existing files are never overwritten; ` (2)`, ` (3)`, and so on are added to duplicate names.
 
+## Usage on Windows
+
+1. Install Python 3 from [python.org](https://www.python.org/downloads/windows/). During setup, enable **Add Python to PATH**.
+2. Double-click `Serien-Sammler.bat`.
+3. Select the source folder, destination folder, and enter the series name.
+
+The finished series folder opens automatically in Windows Explorer.
+
 ## Terminal usage
 
 ```bash
