@@ -14,7 +14,7 @@ Original files are only **copied** — never moved or deleted.
 4. Enter the name of the series, for example `Ghost Whisperer`.
 5. The app creates a folder named `Ghost Whisperer` in the destination folder, copies all matching `.mkv` and `.mp4` files into it, then opens that folder in Finder.
 
-The search ignores differences in periods, commas, spaces, and hyphens. Searching for `Ghost Whisperer` therefore also finds files named `Ghost.Whisperer...`, `Ghost-Whisperer...`, and `GhostWhisperer...`. macOS metadata files starting with `._` are skipped. Existing files are never overwritten; ` (2)`, ` (3)`, and so on are added to duplicate names.
+The search ignores differences in periods, commas, spaces, and hyphens. Searching for `Ghost Whisperer` therefore also finds files named `Ghost.Whisperer...`, `Ghost-Whisperer...`, and `GhostWhisperer...`. macOS metadata files starting with `._` are skipped. The app remembers copied source files in a hidden file inside the series folder, so a later run only adds new episodes. Existing files are never overwritten; ` (2)`, ` (3)`, and so on are added to different source files with the same name.
 
 ## Usage on Windows
 

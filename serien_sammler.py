@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -13,6 +14,7 @@ from pathlib import Path
 
 
 VIDEO_ENDUNGEN = {".mkv", ".mp4"}
+MANIFEST_NAME = ".serien-sammler-manifest.json"
 
 
 def folder_name(name: str) -> str:
@@ -38,6 +40,50 @@ def free_name(folder: Path, name: str) -> Path:
         if not candidate.exists():
             return candidate
         number += 1
+
+
+def source_signature(file: Path) -> dict[str, int | str]:
+    stats = file.stat()
+    return {
+        "source": str(file.resolve()),
+        "size": stats.st_size,
+        "modified": stats.st_mtime_ns,
+    }
+
+
+def load_manifest(folder: Path) -> dict[str, dict[str, int | str]]:
+    manifest_path = folder / MANIFEST_NAME
+    try:
+        with manifest_path.open(encoding="utf-8") as manifest_file:
+            data = json.load(manifest_file)
+        files = data.get("files", {})
+        return files if isinstance(files, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def save_manifest(folder: Path, files: dict[str, dict[str, int | str]]) -> None:
+    manifest_path = folder / MANIFEST_NAME
+    temporary_path = folder / f"{MANIFEST_NAME}.tmp"
+    with temporary_path.open("w", encoding="utf-8") as manifest_file:
+        json.dump({"files": files}, manifest_file, ensure_ascii=False, indent=2)
+    temporary_path.replace(manifest_path)
+
+
+def existing_destination(
+    file: Path, signature: dict[str, int | str], target: Path, manifest: dict[str, dict[str, int | str]]
+) -> Path | None:
+    source = str(signature["source"])
+    record = manifest.get(source)
+    if record and record.get("size") == signature["size"] and record.get("modified") == signature["modified"]:
+        destination = target / str(record.get("destination", ""))
+        if destination.is_file():
+            return destination
+
+    candidate = target / file.name
+    if not manifest and candidate.is_file() and candidate.stat().st_size == signature["size"]:
+        return candidate
+    return None
 
 
 def matching_videos(source: Path, keyword: str) -> list[Path]:
@@ -81,18 +127,34 @@ def collect_series(name_input: str, source: Path, destination: Path) -> int:
         return 1
 
     target.mkdir(parents=True, exist_ok=True)
+    manifest = load_manifest(target)
     copied = 0
+    skipped = 0
     errors: list[str] = []
     for number, file in enumerate(files, start=1):
-        print(f"Kopiere {number} von {len(files)}: {file.name}")
         try:
-            shutil.copy2(file, free_name(target, file.name))
+            signature = source_signature(file)
+            source = str(signature["source"])
+            destination = existing_destination(file, signature, target, manifest)
+            if destination:
+                manifest[source] = {**signature, "destination": destination.name}
+                save_manifest(target, manifest)
+                skipped += 1
+                print(f"Überspringe {number} von {len(files)} (bereits vorhanden): {file.name}")
+                continue
+
+            destination = free_name(target, file.name)
+            print(f"Kopiere {number} von {len(files)}: {file.name}")
+            shutil.copy2(file, destination)
+            manifest[source] = {**signature, "destination": destination.name}
+            save_manifest(target, manifest)
             copied += 1
         except OSError as error:
             errors.append(f"{file.name}: {error}")
 
-    if copied:
-        print(f"\nFertig: {copied} Datei(en) liegen jetzt in: {target}")
+    if copied or skipped:
+        print(f"\nFertig: {copied} neue Datei(en) kopiert, {skipped} bereits vorhandene übersprungen.")
+        print(f"Zielordner: {target}")
         open_folder(target)
     if errors:
         print(f"\n{len(errors)} Datei(en) konnten nicht kopiert werden:", file=sys.stderr)

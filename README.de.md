@@ -14,7 +14,7 @@ Die Originaldateien werden ausschließlich **kopiert**, nie verschoben oder gel�
 4. Den Namen der gewünschten Serie eingeben, zum Beispiel `Ghost Whisperer`.
 5. Das Programm erstellt im Zielordner automatisch `Ghost Whisperer`, sammelt dort alle passenden `.mkv`- und `.mp4`-Dateien und öffnet den Ordner anschließend im Finder.
 
-Die Suche ignoriert Punkte, Kommas, Leerzeichen und Bindestriche. `Ghost Whisperer` findet deshalb auch `Ghost.Whisperer...`, `Ghost-Whisperer...` und `GhostWhisperer...`. macOS-Metadateien mit `._` werden nicht kopiert. Bei gleichen Dateinamen wird nichts überschrieben; stattdessen wird ` (2)`, ` (3)` usw. angehängt.
+Die Suche ignoriert Punkte, Kommas, Leerzeichen und Bindestriche. `Ghost Whisperer` findet deshalb auch `Ghost.Whisperer...`, `Ghost-Whisperer...` und `GhostWhisperer...`. macOS-Metadateien mit `._` werden nicht kopiert. Das Programm merkt sich kopierte Quelldateien in einer versteckten Datei im Serienordner; bei einem späteren Durchlauf werden daher nur neue Folgen ergänzt. Bei verschiedenen Quelldateien mit gleichem Namen wird nichts überschrieben; stattdessen wird ` (2)`, ` (3)` usw. angehängt.
 
 ## Verwendung unter Windows
 
