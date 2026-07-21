@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sammelt Folgen einer Serie für HandBrake in einem einzigen Ordner."""
+"""Sammelt Folgen einer Serie in einem einzigen Ordner."""
 
 from __future__ import annotations
 
@@ -88,7 +88,7 @@ def collect_series(name_input: str, source: Path, destination: Path) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sammelt Serienfolgen für HandBrake.")
+    parser = argparse.ArgumentParser(description="Sammelt Serienfolgen in einem Ordner.")
     parser.add_argument("--series", help="Name oder Stichwort der gewünschten Serie")
     parser.add_argument("--source", help="Ordner, der inklusive Unterordnern durchsucht wird")
     parser.add_argument("--destination", help="Oberordner für den neuen Serienordner")
