@@ -1,44 +1,30 @@
-# Serien-Sammler für HandBrake
+# Series Collector for HandBrake
 
-Eine kleine macOS-App, die Folgen einer Serie aus vielen Unterordnern in einem einzigen Ordner sammelt. So kann der fertige Serienordner direkt in HandBrake gezogen werden.
+[Deutsche Anleitung](README.de.md)
 
-Die Originaldateien werden ausschließlich **kopiert**, nie verschoben oder gelöscht.
+A small macOS app that collects episodes of a TV series from many subfolders into one folder. The resulting series folder can then be dropped directly into HandBrake.
 
-## Verwendung auf macOS
+Original files are only **copied** — never moved or deleted.
 
-1. `Serien-Sammler.command` per Doppelklick öffnen. Beim ersten Start kann macOS eine Bestätigung über Rechtsklick → **Öffnen** verlangen.
-2. Den Ordner wählen, in dem nach Folgen gesucht werden soll. Alle Unterordner werden durchsucht.
-3. Den Zielordner wählen, zum Beispiel einen Ordner namens `Filme`.
-4. Den Namen der gewünschten Serie eingeben, zum Beispiel `Ghost Whisperer`.
-5. Das Programm erstellt im Zielordner automatisch `Ghost Whisperer` und kopiert alle passenden `.mkv`- und `.mp4`-Dateien hinein. Der fertige Ordner öffnet sich anschließend im Finder.
+## Usage on macOS
 
-Die Suche ignoriert Punkte, Kommas, Leerzeichen und Bindestriche. Die Eingabe `Ghost Whisperer` findet deshalb auch `Ghost.Whisperer...`, `Ghost-Whisperer...` und `GhostWhisperer...`. macOS-Metadateien mit `._` werden nicht kopiert. Bei gleichen Dateinamen wird nichts überschrieben; stattdessen wird ` (2)`, ` (3)` usw. angehängt.
+1. Double-click `Serien-Sammler.command`. On the first launch, macOS may require right-clicking it and choosing **Open**.
+2. Select the folder that should be searched. All of its subfolders are searched as well.
+3. Select the destination folder, for example a folder named `Movies`.
+4. Enter the name of the series, for example `Ghost Whisperer`.
+5. The app creates a folder named `Ghost Whisperer` in the destination folder, copies all matching `.mkv` and `.mp4` files into it, then opens that folder in Finder.
 
-## Start im Terminal
+The search ignores differences in periods, commas, spaces, and hyphens. Searching for `Ghost Whisperer` therefore also finds files named `Ghost.Whisperer...`, `Ghost-Whisperer...`, and `GhostWhisperer...`. macOS metadata files starting with `._` are skipped. Existing files are never overwritten; ` (2)`, ` (3)`, and so on are added to duplicate names.
+
+## Terminal usage
 
 ```bash
 /usr/bin/python3 serien_sammler.py \
-  --source "/Pfad/zum/Download-Ordner" \
-  --destination "/Pfad/zum/Filme-Ordner" \
+  --source "/path/to/download-folder" \
+  --destination "/path/to/movies-folder" \
   --series "Ghost Whisperer"
 ```
 
-## Auf GitHub veröffentlichen
+## License
 
-1. Auf GitHub ein neues leeres Repository erstellen, zum Beispiel `serien-sammler`.
-2. Im Projektordner diese Befehle ausführen:
-
-   ```bash
-   git init
-   git add serien_sammler.py Serien-Sammler.command README.md
-   git commit -m "Erste Version des Serien-Sammlers"
-   git branch -M main
-   git remote add origin https://github.com/DEIN-NAME/serien-sammler.git
-   git push -u origin main
-   ```
-
-Danach können andere Personen das Repository als ZIP herunterladen. Die Ordner werden bei jedem Start über Finder-Auswahldialoge festgelegt, daher muss niemand den Code bearbeiten.
-
-## Lizenz
-
-Dieses Projekt steht unter der [MIT-Lizenz](LICENSE). Es darf genutzt, verändert und weitergegeben werden, solange der Lizenzhinweis erhalten bleibt.
+This project is licensed under the [MIT License](LICENSE). You may use, modify, and redistribute it as long as the license notice is retained.
