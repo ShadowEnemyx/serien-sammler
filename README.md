@@ -2,43 +2,56 @@
 
 [Deutsche Anleitung](README.de.md)
 
-A small macOS and Windows app that collects episodes of a TV series and their matching subtitle files from many subfolders into one folder.
+Series Collector finds matching video and subtitle files in nested folders and copies only new files into a single series folder.
 
-Original files are only **copied** — never moved or deleted.
+## Download
 
-## Usage on macOS
+Download the latest ready-to-run version from [GitHub Releases](https://github.com/ShadowEnemyx/serien-sammler/releases/latest). Python is not required.
 
-1. Double-click `Serien-Sammler.command`. On the first launch, macOS may require right-clicking it and choosing **Open**.
-2. On the first run, select the folder to search and the destination folder. These folders are remembered; later runs let you reuse or change them.
-3. Enter the name of the series, for example `Ghost Whisperer`.
-4. Review the preview showing found, new, and already copied files, then confirm the copy.
-5. The app creates a folder named `Ghost Whisperer` in the destination folder, copies the new matching files into it, then opens that folder in Finder.
+- **Windows:** Download `Serien-Sammler-Windows-x64.zip`, extract it, and start `Serien-Sammler.exe`.
+- **Apple Silicon Mac:** Download `Serien-Sammler-macOS-Apple-Silicon.zip`, extract it, and open `Serien-Sammler.app`.
+- **Intel Mac:** Download `Serien-Sammler-macOS-Intel.zip`, extract it, and open `Serien-Sammler.app`.
 
-Supported video formats are `.mkv` and `.mp4`. Matching subtitles in `.srt`, `.ass`, `.ssa`, `.vtt`, and `.sub` format are collected as well.
+The first release is unsigned. Windows SmartScreen may require **More info → Run anyway**. On macOS, right-click the app, select **Open**, then confirm **Open**. Only download releases from this repository and compare the provided `SHA256SUMS.txt` if you want to verify the archive.
 
-The search ignores differences in periods, commas, spaces, and hyphens. Searching for `Ghost Whisperer` therefore also finds files named `Ghost.Whisperer...`, `Ghost-Whisperer...`, and `GhostWhisperer...`. macOS metadata files starting with `._` are skipped. The app remembers copied source files in a hidden file inside the series folder, so a later run only adds new episodes and subtitles. Existing files are never overwritten; ` (2)`, ` (3)`, and so on are added to different source files with the same name.
+## Features
 
-## Usage on Windows
+- German and English interface with automatic language detection
+- Recursive search through all subfolders
+- Flexible matching: `Ghost Whisperer` also finds `Ghost.Whisperer`, `Ghost-Whisperer`, and `GhostWhisperer`
+- Preview showing videos, subtitles, new files, and existing files
+- Progress display and safe cancellation between files
+- Remembers source folder, destination folder, and language
+- Adds only new files on later runs
+- Never overwrites existing files
+- Supports `.mkv`, `.mp4`, `.srt`, `.ass`, `.ssa`, `.vtt`, and `.sub`
 
-1. Install Python 3 from [python.org](https://www.python.org/downloads/windows/). During setup, enable **Add Python to PATH**.
-2. Double-click `Serien-Sammler.bat`.
-3. On the first run, select the source folder and destination folder. Later runs let you reuse or change them.
-4. Enter the series name, review the preview, and confirm the copy.
+Original files are only **copied** — never moved or deleted. The destination folder must not be inside the source folder.
 
-The finished series folder opens automatically in Windows Explorer.
+## Use from source
 
-## Terminal usage
+Python 3.9 or newer is required when running from source.
 
 ```bash
-/usr/bin/python3 serien_sammler.py \
+python3 serien_sammler.py \
   --source "/path/to/download-folder" \
-  --destination "/path/to/movies-folder" \
+  --destination "/path/to/videos-folder" \
   --series "Ghost Whisperer" \
-  --remember-folders
+  --language en \
+  --preview
 ```
 
-Add `--preview` to show the planned changes without copying anything. After folders have been remembered, `--source` and `--destination` can be omitted.
+Remove `--preview` to copy files. Add `--remember-folders` to save the selected folders. The existing `.command` and `.bat` launchers remain available as source-code fallbacks.
+
+## Development
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest
+```
+
+PyInstaller is pinned in `requirements-build.txt`. Version tags such as `v1.0.0` automatically run all tests and publish Windows x64, macOS Apple Silicon, and macOS Intel downloads.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE). You may use, modify, and redistribute it as long as the license notice is retained.
+This project is licensed under the [MIT License](LICENSE).
