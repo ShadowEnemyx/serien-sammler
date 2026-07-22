@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.artifact }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            artifact: Serien-Sammler-Windows-x64
+            platform: windows
+          - runner: macos-15
+            artifact: Serien-Sammler-macOS-Apple-Silicon
+            platform: macos
+          - runner: macos-15-intel
+            artifact: Serien-Sammler-macOS-Intel
+            platform: macos
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements-build.txt
+            requirements-dev.txt
+
+      - name: Install build dependencies
+        run: python -m pip install -r requirements-build.txt -r requirements-dev.txt
+
+      - name: Verify release version
+        run: python scripts/check_version.py "${{ github.ref_name }}"
+
+      - name: Run tests
+        run: python -m pytest
+
+      - name: Build application
+        run: pyinstaller --noconfirm --clean Serien-Sammler.spec
+
+      - name: Smoke-test Windows executable
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath ".\dist\Serien-Sammler.exe" -ArgumentList "--version" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { exit $process.ExitCode }
+
+      - name: Smoke-test macOS application
+        if: matrix.platform == 'macos'
+        run: ./dist/Serien-Sammler.app/Contents/MacOS/Serien-Sammler --version
+
+      - name: Package Windows application
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: Compress-Archive -Path ".\dist\Serien-Sammler.exe" -DestinationPath ".\${{ matrix.artifact }}.zip"
+
+      - name: Package macOS application
+        if: matrix.platform == 'macos'
+        run: ditto -c -k --sequesterRsrc --keepParent "dist/Serien-Sammler.app" "${{ matrix.artifact }}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-files
+          merge-multiple: true
+
+      - name: Create checksums
+        working-directory: release-files
+        run: sha256sum *.zip > SHA256SUMS.txt
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" release-files/*.zip release-files/SHA256SUMS.txt --verify-tag --generate-notes --title "Serien-Sammler ${{ github.ref_name }}"

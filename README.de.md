@@ -2,43 +2,56 @@
 
 [English README](README.md)
 
-Eine kleine App für macOS und Windows, die Folgen einer Serie und die passenden Untertitel aus vielen Unterordnern in einem einzigen Ordner sammelt.
+Der Serien-Sammler findet passende Video- und Untertiteldateien in verschachtelten Ordnern und kopiert nur neue Dateien in einen gemeinsamen Serienordner.
 
-Die Originaldateien werden ausschließlich **kopiert**, nie verschoben oder gelöscht.
+## Download
 
-## Verwendung auf macOS
+Die aktuelle fertige Version gibt es unter [GitHub Releases](https://github.com/ShadowEnemyx/serien-sammler/releases/latest). Python wird nicht benötigt.
 
-1. `Serien-Sammler.command` per Doppelklick öffnen. Beim ersten Start kann macOS eine Bestätigung über Rechtsklick → **Öffnen** verlangen.
-2. Beim ersten Start den Suchordner und den Zielordner wählen. Diese Ordner werden gespeichert; bei späteren Starts können sie wiederverwendet oder geändert werden.
-3. Den Namen der gewünschten Serie eingeben, zum Beispiel `Ghost Whisperer`.
-4. In der Vorschau prüfen, wie viele Dateien gefunden, neu oder bereits vorhanden sind, und das Kopieren bestätigen.
-5. Das Programm erstellt im Zielordner automatisch `Ghost Whisperer`, kopiert nur die neuen passenden Dateien und öffnet den Ordner anschließend im Finder.
+- **Windows:** `Serien-Sammler-Windows-x64.zip` herunterladen, entpacken und `Serien-Sammler.exe` starten.
+- **Mac mit Apple Silicon:** `Serien-Sammler-macOS-Apple-Silicon.zip` herunterladen, entpacken und `Serien-Sammler.app` öffnen.
+- **Intel-Mac:** `Serien-Sammler-macOS-Intel.zip` herunterladen, entpacken und `Serien-Sammler.app` öffnen.
 
-Unterstützte Videoformate sind `.mkv` und `.mp4`. Passende Untertitel in den Formaten `.srt`, `.ass`, `.ssa`, `.vtt` und `.sub` werden ebenfalls gesammelt.
+Die erste Version ist nicht offiziell signiert. Unter Windows kann SmartScreen **Weitere Informationen → Trotzdem ausführen** verlangen. Unter macOS die App per Rechtsklick → **Öffnen** starten und nochmals **Öffnen** bestätigen. Downloads sollten nur aus diesem Repository stammen; zur zusätzlichen Kontrolle liegt `SHA256SUMS.txt` bei.
 
-Die Suche ignoriert Punkte, Kommas, Leerzeichen und Bindestriche. `Ghost Whisperer` findet deshalb auch `Ghost.Whisperer...`, `Ghost-Whisperer...` und `GhostWhisperer...`. macOS-Metadateien mit `._` werden nicht kopiert. Das Programm merkt sich kopierte Quelldateien in einer versteckten Datei im Serienordner; bei einem späteren Durchlauf werden daher nur neue Folgen und Untertitel ergänzt. Bei verschiedenen Quelldateien mit gleichem Namen wird nichts überschrieben; stattdessen wird ` (2)`, ` (3)` usw. angehängt.
+## Funktionen
 
-## Verwendung unter Windows
+- Deutsche und englische Oberfläche mit automatischer Spracherkennung
+- Rekursive Suche durch alle Unterordner
+- Flexible Suche: `Ghost Whisperer` findet auch `Ghost.Whisperer`, `Ghost-Whisperer` und `GhostWhisperer`
+- Vorschau mit Videos, Untertiteln, neuen und vorhandenen Dateien
+- Fortschrittsanzeige und sicheres Abbrechen zwischen Dateien
+- Merkt sich Suchordner, Zielordner und Sprache
+- Ergänzt bei späteren Durchläufen nur neue Dateien
+- Überschreibt niemals vorhandene Dateien
+- Unterstützt `.mkv`, `.mp4`, `.srt`, `.ass`, `.ssa`, `.vtt` und `.sub`
 
-1. Python 3 von [python.org](https://www.python.org/downloads/windows/) installieren. Bei der Installation **Add Python to PATH** aktivieren.
-2. `Serien-Sammler.bat` per Doppelklick starten.
-3. Beim ersten Start Suchordner und Zielordner auswählen. Bei späteren Starts können die gespeicherten Ordner wiederverwendet oder geändert werden.
-4. Seriennamen eingeben, die Vorschau prüfen und das Kopieren bestätigen.
+Originaldateien werden ausschließlich **kopiert**, nie verschoben oder gelöscht. Der Zielordner darf nicht innerhalb des Suchordners liegen.
 
-Der fertige Serienordner öffnet sich automatisch im Windows-Explorer.
+## Start aus dem Quellcode
 
-## Start im Terminal
+Beim Start aus dem Quellcode wird Python 3.9 oder neuer benötigt.
 
 ```bash
-/usr/bin/python3 serien_sammler.py \
+python3 serien_sammler.py \
   --source "/Pfad/zum/Download-Ordner" \
-  --destination "/Pfad/zum/Filme-Ordner" \
+  --destination "/Pfad/zum/Video-Ordner" \
   --series "Ghost Whisperer" \
-  --remember-folders
+  --language de \
+  --preview
 ```
 
-Mit `--preview` werden die geplanten Änderungen angezeigt, ohne Dateien zu kopieren. Nachdem die Ordner gespeichert wurden, können `--source` und `--destination` weggelassen werden.
+Ohne `--preview` werden die Dateien kopiert. Mit `--remember-folders` werden die ausgewählten Ordner gespeichert. Die vorhandenen `.command`- und `.bat`-Startdateien bleiben als Quellcode-Fallback erhalten.
+
+## Entwicklung
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest
+```
+
+PyInstaller ist in `requirements-build.txt` fest angeheftet. Versions-Tags wie `v1.0.0` führen automatisch alle Tests aus und veröffentlichen Downloads für Windows x64, macOS Apple Silicon und macOS Intel.
 
 ## Lizenz
 
-Dieses Projekt steht unter der [MIT-Lizenz](LICENSE). Es darf genutzt, verändert und weitergegeben werden, solange der Lizenzhinweis erhalten bleibt.
+Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).
