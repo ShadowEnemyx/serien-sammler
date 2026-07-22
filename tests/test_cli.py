@@ -2,6 +2,7 @@ from pathlib import Path
 
 from series_collector import __version__
 from series_collector.cli import main
+from series_collector.updates import UpdateInfo
 
 
 def test_version(capsys: object) -> None:
@@ -83,3 +84,13 @@ def test_no_matches_returns_one(tmp_path: Path, capsys: object) -> None:
 
     assert result == 1
     assert "No matching" in capsys.readouterr().out
+
+
+def test_cli_update_check(monkeypatch: object, capsys: object) -> None:
+    monkeypatch.setattr(
+        "series_collector.cli.check_for_updates",
+        lambda: UpdateInfo("1.1.0", "1.2.0", "https://github.com/ShadowEnemyx/serien-sammler/releases/tag/v1.2.0"),
+    )
+
+    assert main(["--check-updates", "--language", "en"]) == 0
+    assert "Version 1.2.0 is available" in capsys.readouterr().out
