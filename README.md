@@ -21,6 +21,8 @@ Builds are signed automatically when the repository owner has configured signing
 - Recursive search through all subfolders
 - Flexible matching: `Ghost Whisperer` also finds `Ghost.Whisperer`, `Ghost-Whisperer`, and `GhostWhisperer`
 - Exact, likely, and ambiguous match classification; ambiguous results require manual selection
+- Automatic season folders: `S01E03`, `Staffel 2`, `Season 3`, and `4x05` are sorted into `S01`, `S02`, `S03`, and `S04`
+- Previously collected episodes in the series root are safely sorted into their detected season on the next run
 - Selectable preview with source path and planned copy, skip, or rename action
 - Content fingerprints prevent duplicate copies even when source paths or filenames differ
 - Different files with the same name are kept as ` (2)`, ` (3)`, and so on
@@ -53,7 +55,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-PyInstaller and Pillow are pinned in `requirements-build.txt`. Tags such as `v1.1.0` test and build Windows x64, macOS Apple Silicon, and macOS Intel artifacts, exercise the installer/DMGs, create SHA-256 checksums, and publish a release.
+PyInstaller and Pillow are pinned in `requirements-build.txt`. Tags such as `v1.2.0` test and build Windows x64, macOS Apple Silicon, and macOS Intel artifacts, exercise the installer/DMGs, create SHA-256 checksums, and publish a release.
 
 Optional GitHub Actions secrets enable official signing:
 

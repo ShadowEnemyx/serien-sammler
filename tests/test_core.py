@@ -10,6 +10,7 @@ from series_collector.core import (
     classify_match,
     copy_series,
     default_language,
+    detect_season,
     folder_name,
     load_config,
     normalise_for_search,
@@ -26,7 +27,11 @@ def create_file(path: Path, content: bytes = b"content") -> Path:
 
 
 def visible_files(folder: Path) -> list[str]:
-    return sorted(path.name for path in folder.iterdir() if not path.name.startswith("."))
+    return sorted(
+        path.relative_to(folder).as_posix()
+        for path in folder.rglob("*")
+        if path.is_file() and not any(part.startswith(".") for part in path.relative_to(folder).parts)
+    )
 
 
 def test_name_normalisation_ignores_separators() -> None:
@@ -36,6 +41,12 @@ def test_name_normalisation_ignores_separators() -> None:
     assert classify_match("GhostWhispererS01E01.mkv", "Ghost Whisperer") == "exact"
     assert classify_match("Ghost.Whisperer.Special.mkv", "Ghost Whisperer") == "likely"
     assert classify_match("TheOfficeUS.S01E01.mkv", "The Office") == "ambiguous"
+    assert detect_season("Ghost.Whisperer.S01E03.mkv") == 1
+    assert detect_season("Ghost Whisperer Staffel 2 Folge 4.mkv") == 2
+    assert detect_season("Ghost Whisperer Season-03 Episode 2.mkv") == 3
+    assert detect_season("GhostWhisperer.4x05.mp4") == 4
+    assert detect_season("GhostWhispererS05E03.mkv") == 5
+    assert detect_season("Ghost Whisperer Special.mkv") is None
 
 
 def test_language_defaults_and_validation() -> None:
@@ -73,15 +84,16 @@ def test_repeat_run_skips_known_files_and_adds_new_files(tmp_path: Path) -> None
     target = destination / "Show"
 
     assert first_summary.copied == 2
-    assert visible_files(target) == ["Show.S01E01 (2).mkv", "Show.S01E01.mkv"]
+    assert visible_files(target) == ["S01/Show.S01E01 (2).mkv", "S01/Show.S01E01.mkv"]
     assert (target / MANIFEST_NAME).is_file()
 
     second_scan = scan_series("Show", source, destination)
     second_summary = copy_series(second_scan)
     assert second_scan.existing_count == 2
     assert second_summary.copied == 0
-    assert second_summary.skipped == 2
-    assert visible_files(target) == ["Show.S01E01 (2).mkv", "Show.S01E01.mkv"]
+    assert second_summary.processed == 0
+    assert second_summary.skipped == 0
+    assert visible_files(target) == ["S01/Show.S01E01 (2).mkv", "S01/Show.S01E01.mkv"]
 
     create_file(source / "three" / "Show.S01E01.mkv", b"third source")
     third_scan = scan_series("Show", source, destination)
@@ -89,9 +101,9 @@ def test_repeat_run_skips_known_files_and_adds_new_files(tmp_path: Path) -> None
     assert third_scan.new_count == 1
     assert third_summary.copied == 1
     assert visible_files(target) == [
-        "Show.S01E01 (2).mkv",
-        "Show.S01E01 (3).mkv",
-        "Show.S01E01.mkv",
+        "S01/Show.S01E01 (2).mkv",
+        "S01/Show.S01E01 (3).mkv",
+        "S01/Show.S01E01.mkv",
     ]
 
 
@@ -159,7 +171,7 @@ def test_identical_content_from_different_sources_is_copied_once(tmp_path: Path)
     assert scan.new_count == 1
     assert scan.existing_count == 1
     assert summary.copied == 1
-    assert visible_files(destination / "Show") == ["Show.S01E01.mkv"]
+    assert visible_files(destination / "Show") == ["S01/Show.S01E01.mkv"]
 
 
 def test_orphan_destination_is_adopted_by_fingerprint(tmp_path: Path) -> None:
@@ -172,8 +184,10 @@ def test_orphan_destination_is_adopted_by_fingerprint(tmp_path: Path) -> None:
     scan = scan_series("Show", source, destination)
     summary = copy_series(scan)
 
-    assert scan.existing_count == 1
-    assert summary.skipped == 1
+    assert scan.existing_count == 0
+    assert scan.move_count == 1
+    assert summary.moved == 1
+    assert visible_files(target) == ["S01/renamed.mkv"]
     manifest = json.loads((target / MANIFEST_NAME).read_text())
     assert manifest["schema_version"] == 2
 
@@ -187,7 +201,10 @@ def test_different_files_with_same_name_are_renamed(tmp_path: Path) -> None:
     scan = scan_series("Show", source, destination)
     assert {item.destination_action for item in scan.items} == {"action_copy", "action_rename"}
     copy_series(scan)
-    assert visible_files(destination / "Show") == ["Show.S01E01 (2).mkv", "Show.S01E01.mkv"]
+    assert visible_files(destination / "Show") == [
+        "S01/Show.S01E01 (2).mkv",
+        "S01/Show.S01E01.mkv",
+    ]
 
 
 def test_changed_source_after_preview_fails_safely(tmp_path: Path) -> None:
@@ -241,8 +258,31 @@ def test_version_one_manifest_is_migrated_lazily(tmp_path: Path) -> None:
 
     summary = copy_series(scan_series("Show", source, destination))
 
-    assert summary.skipped == 1
+    assert summary.moved == 1
+    assert visible_files(target) == ["S01/Show.S01E01.mkv"]
     assert json.loads((target / MANIFEST_NAME).read_text())["schema_version"] == 2
+
+
+def test_episodes_and_subtitles_are_sorted_into_season_folders(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    create_file(source / "Ghost.Whisperer.S01E01.mkv", b"s1")
+    create_file(source / "Ghost Whisperer Staffel 2 Folge 1.mkv", b"s2")
+    create_file(source / "Ghost Whisperer Season 3 Episode 1.srt", b"s3 subtitle")
+    create_file(source / "Ghost Whisperer.4x05.mp4", b"s4")
+    create_file(source / "Ghost Whisperer Special.mkv", b"special")
+
+    scan = scan_series("Ghost Whisperer", source, destination)
+    summary = copy_series(scan)
+
+    assert summary.copied == 5
+    assert visible_files(destination / "Ghost Whisperer") == [
+        "Ghost Whisperer Special.mkv",
+        "S01/Ghost.Whisperer.S01E01.mkv",
+        "S02/Ghost Whisperer Staffel 2 Folge 1.mkv",
+        "S03/Ghost Whisperer Season 3 Episode 1.srt",
+        "S04/Ghost Whisperer.4x05.mp4",
+    ]
 
 
 def test_destination_inside_source_is_rejected(tmp_path: Path) -> None:

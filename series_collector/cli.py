@@ -37,6 +37,7 @@ def _print_preview(language: str, scan: object) -> None:
             new=scan.new_count,
             existing=scan.existing_count,
             selected=scan.selected_new_count,
+            moved=scan.move_count,
             ambiguous=scan.ambiguous_count,
             target=scan.target,
         )
@@ -44,7 +45,12 @@ def _print_preview(language: str, scan: object) -> None:
 
 
 def _progress_printer(language: str, progress: CopyProgress) -> None:
-    key = {"copied": "cli_copy", "skipped": "cli_skip", "failed": "cli_fail"}[progress.action]
+    key = {
+        "copied": "cli_copy",
+        "moved": "cli_move",
+        "skipped": "cli_skip",
+        "failed": "cli_fail",
+    }[progress.action]
     print(
         translate(
             language,
@@ -144,6 +150,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             language,
             "cli_done",
             copied=summary.copied,
+            moved=summary.moved,
             skipped=summary.skipped,
             failed=summary.failed,
         )
