@@ -64,6 +64,8 @@ def test_scan_finds_videos_and_subtitles(tmp_path: Path) -> None:
     create_file(source / "nested" / "Ghost-Whisperer-S01E02.ass")
     create_file(source / "nested" / "Other.Show.S01E01.mp4")
     create_file(source / "nested" / "._Ghost.Whisperer.S01E01.mkv")
+    create_file(source / "nested" / "Ghost.Whisperer.S01E01.sample.mkv")
+    create_file(source / "nested" / "Ghost.Whisperer.SAMPLE.srt")
 
     scan = scan_series("Ghost Whisperer", source, destination)
 
@@ -71,6 +73,21 @@ def test_scan_finds_videos_and_subtitles(tmp_path: Path) -> None:
     assert scan.subtitle_count == 2
     assert scan.new_count == 3
     assert scan.existing_count == 0
+
+
+def test_sample_files_are_never_collected(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    create_file(source / "Show.S01E01.mkv", b"episode")
+    create_file(source / "Show.S01E01-Sample.mkv", b"short sample")
+    create_file(source / "SAMPLE-Show-S01E01.srt", b"sample subtitle")
+
+    scan = scan_series("Show", source, destination)
+    summary = copy_series(scan)
+
+    assert [item.source.name for item in scan.items] == ["Show.S01E01.mkv"]
+    assert summary.copied == 1
+    assert visible_files(destination / "Show") == ["S01/Show.S01E01.mkv"]
 
 
 def test_repeat_run_skips_known_files_and_adds_new_files(tmp_path: Path) -> None:
