@@ -358,6 +358,7 @@ def matching_files(source: Path, keyword: str) -> list[Path]:
         for path in source.rglob("*")
         if path.is_file()
         and not path.name.startswith("._")
+        and "sample" not in path.name.casefold()
         and path.suffix.casefold() in SUPPORTED_EXTENSIONS
         and classify_match(path.name, keyword) is not None
     )

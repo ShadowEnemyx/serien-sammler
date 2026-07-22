@@ -23,6 +23,7 @@ Builds werden automatisch signiert, sobald der Repository-Besitzer Signierungsze
 - Einstufung als sicherer, wahrscheinlicher oder mehrdeutiger Treffer; mehrdeutige Dateien müssen bewusst ausgewählt werden
 - Automatische Staffelordner: `S01E03`, `Staffel 2`, `Season 3` und `4x05` werden nach `S01`, `S02`, `S03` und `S04` sortiert
 - Bereits gesammelte Folgen im Serien-Hauptordner werden beim nächsten Lauf sicher in die erkannte Staffel einsortiert
+- Dateien mit `sample` an beliebiger Stelle im Dateinamen werden unabhängig von Groß-/Kleinschreibung immer ignoriert
 - Auswählbare Vorschau mit Quellpfad und geplanter Aktion: kopieren, überspringen oder umbenennen
 - Inhaltsfingerabdrücke verhindern Dubletten auch bei anderem Quellpfad oder Dateinamen
 - Verschiedene Dateien mit gleichem Namen bleiben als ` (2)`, ` (3)` usw. erhalten
@@ -55,7 +56,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-PyInstaller und Pillow sind in `requirements-build.txt` fest angeheftet. Tags wie `v1.2.0` testen und bauen Windows x64, macOS Apple Silicon und macOS Intel, prüfen Installer und DMGs, erzeugen SHA-256-Prüfsummen und veröffentlichen das Release.
+PyInstaller und Pillow sind in `requirements-build.txt` fest angeheftet. Tags wie `v1.2.1` testen und bauen Windows x64, macOS Apple Silicon und macOS Intel, prüfen Installer und DMGs, erzeugen SHA-256-Prüfsummen und veröffentlichen das Release.
 
 Optionale GitHub-Actions-Secrets aktivieren die offizielle Signierung:
 
