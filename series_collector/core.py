@@ -53,6 +53,7 @@ class ScanItem:
     fingerprint: FileFingerprint
     match_quality: str
     planned_destination: Path
+    season: Optional[int]
     selected: bool = True
     duplicate_in_scan: bool = False
 
@@ -65,7 +66,25 @@ class ScanItem:
         return self.is_existing or self.duplicate_in_scan
 
     @property
+    def needs_move(self) -> bool:
+        return bool(
+            self.season is not None
+            and self.existing_destination
+            and self.existing_destination.parent != self.planned_destination.parent
+        )
+
+    @property
+    def requires_change(self) -> bool:
+        return self.needs_move or not self.is_duplicate
+
+    @property
+    def season_label(self) -> str:
+        return f"S{self.season:02d}" if self.season is not None else "—"
+
+    @property
     def destination_action(self) -> str:
+        if self.needs_move:
+            return "action_move"
         if self.is_duplicate:
             return "action_duplicate"
         return "action_rename" if self.planned_destination.name != self.source.name else "action_copy"
@@ -96,8 +115,12 @@ class ScanResult:
         return sum(item.selected and not item.is_duplicate for item in self.items)
 
     @property
+    def move_count(self) -> int:
+        return sum(item.needs_move for item in self.items)
+
+    @property
     def existing_count(self) -> int:
-        return sum(item.is_duplicate for item in self.items)
+        return sum(item.is_duplicate and not item.needs_move for item in self.items)
 
     @property
     def ambiguous_count(self) -> int:
@@ -108,7 +131,7 @@ class ScanResult:
         return replace(
             self,
             items=tuple(
-                replace(item, selected=str(item.source) in selected and not item.is_duplicate)
+                replace(item, selected=str(item.source) in selected and item.requires_change)
                 for item in self.items
             ),
         )
@@ -121,6 +144,7 @@ class CopyProgress:
     current_file: str
     action: str
     copied: int
+    moved: int
     skipped: int
     failed: int
     error: str = ""
@@ -132,6 +156,7 @@ class CopySummary:
     total: int
     processed: int
     copied: int
+    moved: int
     skipped: int
     failed: int
     cancelled: bool
@@ -144,6 +169,22 @@ def folder_name(name: str) -> str:
 
 def normalise_for_search(text: str) -> str:
     return "".join(character for character in text.casefold() if character.isalnum())
+
+
+def detect_season(filename: str) -> Optional[int]:
+    """Return a season number from common German and international episode names."""
+    stem = Path(filename).stem
+    patterns = (
+        r"(?i)s0*(\d{1,3})(?=e\d|[^0-9]|$)",
+        r"(?i)staffel[\s._-]*0*(\d{1,3})(?=[^0-9]|$)",
+        r"(?i)season[\s._-]*0*(\d{1,3})(?=[^0-9]|$)",
+        r"(?i)(?:^|[^0-9])(\d{1,3})x\d{1,4}(?=[^0-9]|$)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, stem)
+        if match:
+            return int(match.group(1))
+    return None
 
 
 def default_language() -> str:
@@ -334,7 +375,7 @@ def _target_index(target: Path) -> dict[str, Path]:
     index: dict[str, Path] = {}
     if not target.is_dir():
         return index
-    for path in sorted(target.iterdir()):
+    for path in sorted(target.rglob("*")):
         if not path.is_file() or path.name.startswith(".") or path.suffix.casefold() not in SUPPORTED_EXTENSIONS:
             continue
         try:
@@ -358,16 +399,33 @@ def scan_series(name_input: str, source: Path, destination: Path) -> ScanResult:
 
     target_index = _target_index(target)
     planned_fingerprints: dict[str, Path] = {}
-    reserved = {path.name.casefold() for path in target.iterdir()} if target.is_dir() else set()
+    reserved_by_folder: dict[Path, set[str]] = {}
+
+    def reserved_names(folder: Path) -> set[str]:
+        if folder not in reserved_by_folder:
+            reserved_by_folder[folder] = (
+                {path.name.casefold() for path in folder.iterdir()} if folder.is_dir() else set()
+            )
+        return reserved_by_folder[folder]
+
     items: list[ScanItem] = []
     for file in matching_files(source, series_name):
+        season = detect_season(file.name)
+        season_folder = target / f"S{season:02d}" if season is not None else target
+        reserved = reserved_names(season_folder)
         fingerprint = fast_fingerprint(file)
         content_key = fingerprint_key(file, fingerprint)
         existing = target_index.get(content_key)
         duplicate_in_scan = existing is None and content_key in planned_fingerprints
-        planned = existing or planned_fingerprints.get(content_key) or free_name(target, file.name, reserved)
-        if not existing and not duplicate_in_scan:
+        if existing and season is not None and existing.parent != season_folder:
+            planned = free_name(season_folder, existing.name, reserved)
+        else:
+            planned = existing or planned_fingerprints.get(content_key) or free_name(
+                season_folder, file.name, reserved
+            )
+        if (not existing and not duplicate_in_scan) or (existing and planned != existing):
             reserved.add(planned.name.casefold())
+        if not existing and not duplicate_in_scan:
             planned_fingerprints[content_key] = planned
         quality = classify_match(file.name, series_name) or "ambiguous"
         kind = "video" if file.suffix.casefold() in VIDEO_EXTENSIONS else "subtitle"
@@ -379,7 +437,10 @@ def scan_series(name_input: str, source: Path, destination: Path) -> ScanResult:
                 fingerprint=fingerprint,
                 match_quality=quality,
                 planned_destination=planned,
-                selected=quality != "ambiguous" and not duplicate_in_scan,
+                season=season,
+                selected=quality != "ambiguous"
+                and not duplicate_in_scan
+                and (existing is None or existing.parent != planned.parent),
                 duplicate_in_scan=duplicate_in_scan,
             )
         )
@@ -394,17 +455,21 @@ def scan_series(name_input: str, source: Path, destination: Path) -> ScanResult:
 
 
 def _record_manifest_file(
-    manifest: dict[str, object], fingerprint: FileFingerprint, destination: Path, source: Path
+    manifest: dict[str, object], fingerprint: FileFingerprint, destination: Path, source: Path, target: Path
 ) -> None:
     files = manifest.setdefault("files", {})
     assert isinstance(files, dict)
     content_key = fingerprint_key(source, fingerprint)
+    try:
+        destination_value = destination.relative_to(target).as_posix()
+    except ValueError:
+        destination_value = destination.name
     record = files.setdefault(
         content_key,
         {
             "size": fingerprint.size,
             "sample_sha256": fingerprint.sample_sha256,
-            "destination": destination.name,
+            "destination": destination_value,
             "sources": {},
         },
     )
@@ -415,7 +480,7 @@ def _record_manifest_file(
         {
             "size": fingerprint.size,
             "sample_sha256": fingerprint.sample_sha256,
-            "destination": destination.name,
+            "destination": destination_value,
         }
     )
     sources = record.setdefault("sources", {})
@@ -435,7 +500,7 @@ def copy_series(
     manifest["schema_version"] = MANIFEST_VERSION
     target_index = _target_index(scan.target)
     selected_items = tuple(item for item in scan.items if item.selected)
-    copied = skipped = failed = processed = 0
+    copied = moved = skipped = failed = processed = 0
     cancelled = False
     errors: list[str] = []
 
@@ -455,13 +520,27 @@ def copy_series(
             content_key = fingerprint_key(item.source, current_fingerprint)
             output_path = target_index.get(content_key)
             if output_path and output_path.is_file():
-                skipped += 1
-                action = "skipped"
+                desired_parent = item.planned_destination.parent
+                if item.season is not None and output_path.parent != desired_parent:
+                    desired_parent.mkdir(parents=True, exist_ok=True)
+                    moved_path = item.planned_destination
+                    if moved_path.exists() and moved_path != output_path:
+                        moved_path = free_name(desired_parent, output_path.name)
+                    logger.info("Moving collected file %s to %s", output_path, moved_path)
+                    shutil.move(str(output_path), str(moved_path))
+                    output_path = moved_path
+                    target_index[content_key] = output_path
+                    moved += 1
+                    action = "moved"
+                else:
+                    skipped += 1
+                    action = "skipped"
             else:
                 output_path = item.planned_destination
                 if output_path.exists():
-                    output_path = free_name(scan.target, item.source.name)
-                temporary_path = scan.target / f".{output_path.name}.{uuid4().hex}.partial"
+                    output_path = free_name(output_path.parent, item.source.name)
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                temporary_path = output_path.parent / f".{output_path.name}.{uuid4().hex}.partial"
                 logger.info("Copying %s to %s", item.source, output_path)
                 shutil.copy2(item.source, temporary_path)
                 if fast_fingerprint(temporary_path) != current_fingerprint:
@@ -471,7 +550,7 @@ def copy_series(
                 target_index[content_key] = output_path
                 copied += 1
 
-            _record_manifest_file(manifest, current_fingerprint, output_path, item.source)
+            _record_manifest_file(manifest, current_fingerprint, output_path, item.source, scan.target)
             save_manifest(scan.target, manifest)
         except OSError as error:
             failed += 1
@@ -494,6 +573,7 @@ def copy_series(
                     current_file=item.source.name,
                     action=action,
                     copied=copied,
+                    moved=moved,
                     skipped=skipped,
                     failed=failed,
                     error=error_text,
@@ -505,6 +585,7 @@ def copy_series(
         total=len(selected_items),
         processed=processed,
         copied=copied,
+        moved=moved,
         skipped=skipped,
         failed=failed,
         cancelled=cancelled,

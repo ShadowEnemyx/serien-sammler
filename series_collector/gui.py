@@ -152,10 +152,11 @@ class SeriesCollectorApp(tk.Tk):
         self.summary_label = ttk.Label(preview_frame, textvariable=self.summary_text, style="Summary.TLabel")
         self.summary_label.grid(row=0, column=0, sticky="w", pady=(0, 5))
 
-        columns = ("selected", "action", "quality", "type", "file", "path")
+        columns = ("selected", "action", "season", "quality", "type", "file", "path")
         self.tree = ttk.Treeview(preview_frame, columns=columns, show="headings", selectmode="browse")
         self.tree.column("selected", width=64, stretch=False, anchor="center")
         self.tree.column("action", width=110, stretch=False)
+        self.tree.column("season", width=70, stretch=False, anchor="center")
         self.tree.column("quality", width=105, stretch=False)
         self.tree.column("type", width=85, stretch=False)
         self.tree.column("file", width=260, stretch=True)
@@ -206,7 +207,7 @@ class SeriesCollectorApp(tk.Tk):
         self.preview_button.configure(text=self._t("preview"))
         self.copy_button.configure(text=self._t("copy"))
         self.cancel_button.configure(text=self._t("cancel"))
-        for column in ("selected", "action", "quality", "type", "file", "path"):
+        for column in ("selected", "action", "season", "quality", "type", "file", "path"):
             self.tree.heading(column, text=self._t(f"column_{column}"))
         self.update_checkbox.configure(text=self._t("check_updates_startup"))
         self.update_button.configure(text=self._t("check_updates_now"))
@@ -296,6 +297,7 @@ class SeriesCollectorApp(tk.Tk):
                 videos=scan.video_count,
                 subtitles=scan.subtitle_count,
                 new=scan.new_count,
+                moved=scan.move_count,
                 existing=scan.existing_count,
                 ambiguous=scan.ambiguous_count,
             )
@@ -311,6 +313,7 @@ class SeriesCollectorApp(tk.Tk):
                 values=(
                     "✓" if item.selected else "—",
                     self._t(item.destination_action),
+                    item.season_label,
                     self._t(item.match_quality),
                     self._t(item.kind),
                     item.source.name,
@@ -328,7 +331,7 @@ class SeriesCollectorApp(tk.Tk):
             selection = self.tree.selection()
             row = selection[0] if selection else ""
         item = self.row_items.get(row)
-        if not item or item.is_duplicate:
+        if not item or not item.requires_change:
             return
         source = str(item.source)
         if source in self.selected_sources:
@@ -345,7 +348,7 @@ class SeriesCollectorApp(tk.Tk):
     def _refresh_copy_button(self) -> None:
         enabled = bool(
             self.current_scan
-            and any(not item.is_duplicate and str(item.source) in self.selected_sources for item in self.current_scan.items)
+            and any(item.requires_change and str(item.source) in self.selected_sources for item in self.current_scan.items)
         )
         self.copy_button.configure(state="normal" if enabled and not self.copying else "disabled")
 
@@ -397,10 +400,16 @@ class SeriesCollectorApp(tk.Tk):
         self._set_busy(False)
         self._save_settings()
         if summary.cancelled:
-            message = self._t("status_cancelled", copied=summary.copied, skipped=summary.skipped)
+            message = self._t(
+                "status_cancelled", copied=summary.copied, moved=summary.moved, skipped=summary.skipped
+            )
         else:
             message = self._t(
-                "status_complete", copied=summary.copied, skipped=summary.skipped, failed=summary.failed
+                "status_complete",
+                copied=summary.copied,
+                moved=summary.moved,
+                skipped=summary.skipped,
+                failed=summary.failed,
             )
         self.status_text.set(message)
         if summary.failed:
