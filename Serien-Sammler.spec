@@ -13,7 +13,7 @@ analysis = Analysis(
     ["series_collector/gui.py"],
     pathex=[SPECPATH],
     binaries=[],
-    datas=[],
+    datas=[("assets/app-icon.png", "assets")],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -51,6 +51,7 @@ if sys.platform == "darwin":
     app = BUNDLE(
         collected,
         name="Serien-Sammler.app",
+        icon="assets/app-icon.icns",
         bundle_identifier="com.shadowenemy.seriensammler",
         info_plist={
             "CFBundleDisplayName": "Serien-Sammler",
@@ -71,4 +72,5 @@ else:
         strip=False,
         upx=True,
         console=False,
+        icon="assets/app-icon.ico",
     )

@@ -5,13 +5,12 @@ on:
     tags:
       - "v*"
 
-permissions:
-  contents: write
-
 jobs:
   build:
     name: Build ${{ matrix.artifact }}
     runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -25,13 +24,22 @@ jobs:
           - runner: macos-15-intel
             artifact: Serien-Sammler-macOS-Intel
             platform: macos
+    env:
+      WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+      APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -42,14 +50,74 @@ jobs:
       - name: Install build dependencies
         run: python -m pip install -r requirements-build.txt -r requirements-dev.txt
 
+      - name: Install Inno Setup
+        if: matrix.platform == 'windows'
+        run: choco install innosetup --no-progress -y
+
       - name: Verify release version
         run: python scripts/check_version.py "${{ github.ref_name }}"
+
+      - name: Export application version
+        run: python -c "import os; open(os.environ['GITHUB_ENV'], 'a').write('APP_VERSION=' + os.environ['GITHUB_REF_NAME'].removeprefix('v') + '\n')"
 
       - name: Run tests
         run: python -m pytest
 
+      - name: Build native icons
+        run: python scripts/build_icons.py
+
       - name: Build application
         run: pyinstaller --noconfirm --clean Serien-Sammler.spec
+
+      - name: Import Windows signing certificate
+        if: matrix.platform == 'windows' && env.WINDOWS_CERTIFICATE_BASE64 != ''
+        shell: pwsh
+        run: |
+          $certificate = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certificate, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_BASE64))
+          "WINDOWS_CERTIFICATE_PATH=$certificate" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Sign Windows application
+        if: matrix.platform == 'windows' && env.WINDOWS_CERTIFICATE_BASE64 != ''
+        shell: pwsh
+        run: >-
+          signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256
+          /f "$env:WINDOWS_CERTIFICATE_PATH" /p "$env:WINDOWS_CERTIFICATE_PASSWORD"
+          ".\dist\Serien-Sammler.exe"
+
+      - name: Import Apple signing certificate
+        if: matrix.platform == 'macos' && env.APPLE_CERTIFICATE_BASE64 != ''
+        run: |
+          python - <<'PY'
+          import base64, os
+          open(os.path.join(os.environ["RUNNER_TEMP"], "certificate.p12"), "wb").write(
+              base64.b64decode(os.environ["APPLE_CERTIFICATE_BASE64"])
+          )
+          PY
+          KEYCHAIN="$RUNNER_TEMP/serien-sammler.keychain-db"
+          security create-keychain -p "temporary" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "temporary" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "temporary" "$KEYCHAIN"
+          security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
+
+      - name: Sign macOS application
+        if: matrix.platform == 'macos' && env.APPLE_CERTIFICATE_BASE64 != ''
+        run: >-
+          codesign --force --deep --options runtime --timestamp
+          --entitlements scripts/entitlements.plist
+          --sign "$APPLE_SIGNING_IDENTITY" "dist/Serien-Sammler.app"
+
+      - name: Notarize macOS application
+        if: >-
+          matrix.platform == 'macos' && env.APPLE_CERTIFICATE_BASE64 != '' &&
+          env.APPLE_ID != '' && env.APPLE_TEAM_ID != '' && env.APPLE_APP_SPECIFIC_PASSWORD != ''
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent "dist/Serien-Sammler.app" "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --wait
+          xcrun stapler staple "dist/Serien-Sammler.app"
+          xcrun stapler validate "dist/Serien-Sammler.app"
 
       - name: Smoke-test Windows executable
         if: matrix.platform == 'windows'
@@ -62,41 +130,90 @@ jobs:
         if: matrix.platform == 'macos'
         run: ./dist/Serien-Sammler.app/Contents/MacOS/Serien-Sammler --version
 
-      - name: Package Windows application
+      - name: Package Windows application and installer
         if: matrix.platform == 'windows'
         shell: pwsh
-        run: Compress-Archive -Path ".\dist\Serien-Sammler.exe" -DestinationPath ".\${{ matrix.artifact }}.zip"
+        run: |
+          $status = if ($env:WINDOWS_CERTIFICATE_BASE64) { "Signed Windows build" } else { "Unsigned Windows build" }
+          $status | Set-Content BUILD-STATUS.txt
+          Compress-Archive -Path ".\dist\Serien-Sammler.exe", ".\BUILD-STATUS.txt" -DestinationPath ".\${{ matrix.artifact }}.zip"
+          iscc "/DAppVersion=$env:APP_VERSION" scripts\Serien-Sammler.iss
 
-      - name: Package macOS application
+      - name: Sign Windows installer
+        if: matrix.platform == 'windows' && env.WINDOWS_CERTIFICATE_BASE64 != ''
+        shell: pwsh
+        run: >-
+          signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256
+          /f "$env:WINDOWS_CERTIFICATE_PATH" /p "$env:WINDOWS_CERTIFICATE_PASSWORD"
+          ".\Serien-Sammler-Windows-x64-Setup.exe"
+
+      - name: Smoke-test Windows installer
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $installDir = Join-Path $env:RUNNER_TEMP "Serien-Sammler-Test"
+          $setup = Start-Process ".\Serien-Sammler-Windows-x64-Setup.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=$installDir" -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { exit $setup.ExitCode }
+          & "$installDir\Serien-Sammler.exe" --version
+          & "$installDir\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+
+      - name: Package macOS application and DMG
         if: matrix.platform == 'macos'
-        run: ditto -c -k --sequesterRsrc --keepParent "dist/Serien-Sammler.app" "${{ matrix.artifact }}.zip"
+        run: |
+          if [ -n "$APPLE_CERTIFICATE_BASE64" ]; then echo "Signed macOS build"; else echo "Unsigned macOS build"; fi > BUILD-STATUS.txt
+          ditto -c -k --sequesterRsrc --keepParent "dist/Serien-Sammler.app" "${{ matrix.artifact }}.zip"
+          zip -j "${{ matrix.artifact }}.zip" BUILD-STATUS.txt
+          mkdir dmg-root
+          cp -R "dist/Serien-Sammler.app" dmg-root/
+          cp BUILD-STATUS.txt dmg-root/
+          ln -s /Applications dmg-root/Applications
+          hdiutil create -volname "Serien-Sammler" -srcfolder dmg-root -ov -format UDZO "${{ matrix.artifact }}.dmg"
 
-      - uses: actions/upload-artifact@v4
+      - name: Sign macOS DMG
+        if: matrix.platform == 'macos' && env.APPLE_CERTIFICATE_BASE64 != ''
+        run: codesign --force --timestamp --sign "$APPLE_SIGNING_IDENTITY" "${{ matrix.artifact }}.dmg"
+
+      - name: Smoke-test macOS DMG
+        if: matrix.platform == 'macos'
+        run: |
+          mkdir "$RUNNER_TEMP/serien-sammler-mount"
+          hdiutil attach "${{ matrix.artifact }}.dmg" -nobrowse -mountpoint "$RUNNER_TEMP/serien-sammler-mount"
+          "$RUNNER_TEMP/serien-sammler-mount/Serien-Sammler.app/Contents/MacOS/Serien-Sammler" --version
+          hdiutil detach "$RUNNER_TEMP/serien-sammler-mount"
+
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}.zip
+          path: |
+            ${{ matrix.artifact }}.zip
+            ${{ matrix.artifact }}.dmg
+            Serien-Sammler-Windows-x64-Setup.exe
           if-no-files-found: error
 
   publish:
     name: Publish GitHub Release
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: release-files
           merge-multiple: true
 
       - name: Create checksums
         working-directory: release-files
-        run: sha256sum *.zip > SHA256SUMS.txt
+        run: sha256sum * > SHA256SUMS.txt
 
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" release-files/*.zip release-files/SHA256SUMS.txt --verify-tag --generate-notes --title "Serien-Sammler ${{ github.ref_name }}"
+        run: >-
+          gh release create "${{ github.ref_name }}" release-files/*
+          --verify-tag --generate-notes --title "Serien-Sammler ${{ github.ref_name }}"

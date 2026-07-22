@@ -19,6 +19,8 @@ from series_collector.core import (
     scan_series,
 )
 from series_collector.i18n import translate
+from series_collector.logging_utils import configure_logging
+from series_collector.updates import check_for_updates
 
 
 def _error_message(language: str, error: CollectorError) -> str:
@@ -34,6 +36,8 @@ def _print_preview(language: str, scan: object) -> None:
             subtitles=scan.subtitle_count,
             new=scan.new_count,
             existing=scan.existing_count,
+            selected=scan.selected_new_count,
+            ambiguous=scan.ambiguous_count,
             target=scan.target,
         )
     )
@@ -60,6 +64,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--preview", action="store_true", help="Show planned changes without copying")
     parser.add_argument("--remember-folders", action="store_true", help="Remember source and destination")
     parser.add_argument("--language", choices=("de", "en"), help="Interface language")
+    parser.add_argument("--include-ambiguous", action="store_true", help="Include ambiguous filename matches")
+    parser.add_argument("--check-updates", action="store_true", help="Check GitHub for a newer stable release")
+    parser.add_argument("--log-file", help="Write the local application log to this file")
     parser.add_argument("--version", action="store_true", help="Show version and exit")
     parser.add_argument("--config-value", choices=("source", "destination", "language"), help=argparse.SUPPRESS)
     return parser
@@ -71,12 +78,33 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(__version__)
         return 0
 
+    if arguments.log_file:
+        configure_logging(Path(arguments.log_file))
+
     config = load_config()
     if arguments.config_value:
         print(config.get(arguments.config_value, ""))
         return 0
 
     language = normalise_language(arguments.language or config.get("language"))
+    if arguments.check_updates:
+        try:
+            info = check_for_updates()
+        except Exception as error:
+            print(translate(language, "update_failed", error=error), file=sys.stderr)
+            return 2
+        key = "cli_update_available" if info.available else "up_to_date"
+        print(
+            translate(
+                language,
+                key,
+                current=info.current_version,
+                latest=info.latest_version,
+                version=info.current_version,
+                url=info.release_url,
+            )
+        )
+        return 0
     series_name = arguments.series
     if series_name is None:
         try:
@@ -99,6 +127,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         message = _error_message(language, error) if isinstance(error, CollectorError) else str(error)
         print(message, file=sys.stderr)
         return 2
+
+    if arguments.include_ambiguous:
+        scan = scan.with_selection(item.source for item in scan.items)
 
     if not scan.items:
         print(translate(language, "cli_no_matches"))
