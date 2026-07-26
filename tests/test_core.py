@@ -90,6 +90,86 @@ def test_sample_files_are_never_collected(tmp_path: Path) -> None:
     assert visible_files(destination / "Show") == ["S01/Show.S01E01.mkv"]
 
 
+def test_copy_mode_keeps_source_file(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    episode = create_file(source / "Show.S01E01.mkv", b"episode")
+
+    summary = copy_series(scan_series("Show", source, tmp_path / "destination"))
+
+    assert summary.copied == 1
+    assert summary.source_removed == 0
+    assert episode.is_file()
+
+
+def test_move_mode_removes_source_only_after_verified_copy(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    episode = create_file(source / "Show.S01E01.mkv", b"episode")
+
+    summary = copy_series(scan_series("Show", source, destination, "move"))
+
+    assert summary.copied == 1
+    assert summary.source_removed == 1
+    assert summary.failed == 0
+    assert not episode.exists()
+    assert (destination / "Show" / "S01" / episode.name).read_bytes() == b"episode"
+
+
+def test_move_mode_removes_source_when_identical_destination_exists(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    episode = create_file(source / "Show.S01E01.mkv", b"episode")
+    existing = create_file(destination / "Show" / "S01" / episode.name, b"episode")
+
+    scan = scan_series("Show", source, destination, "move")
+    summary = copy_series(scan)
+
+    assert sum(item.selected for item in scan.items) == 1
+    assert summary.copied == 0
+    assert summary.skipped == 0
+    assert summary.source_removed == 1
+    assert not episode.exists()
+    assert existing.read_bytes() == b"episode"
+
+
+def test_move_mode_ignores_and_preserves_sample_files(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    sample = create_file(source / "Show.S01E01.sample.mkv", b"sample")
+    episode = create_file(source / "Show.S01E01.mkv", b"episode")
+
+    summary = copy_series(scan_series("Show", source, tmp_path / "destination", "move"))
+
+    assert summary.source_removed == 1
+    assert sample.is_file()
+    assert not episode.exists()
+
+
+def test_move_mode_cancel_preserves_unprocessed_sources(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    episodes = [
+        create_file(source / f"Show.S01E0{number}.mkv", bytes([number]))
+        for number in range(1, 4)
+    ]
+    cancelled = False
+
+    def progress(_event: object) -> None:
+        nonlocal cancelled
+        cancelled = True
+
+    summary = copy_series(
+        scan_series("Show", source, destination, "move"),
+        progress_callback=progress,
+        cancel_requested=lambda: cancelled,
+    )
+
+    assert summary.cancelled is True
+    assert summary.source_removed == 1
+    assert not episodes[0].exists()
+    assert episodes[1].exists()
+    assert episodes[2].exists()
+
+
 def test_repeat_run_skips_known_files_and_adds_new_files(tmp_path: Path) -> None:
     source = tmp_path / "source"
     destination = tmp_path / "destination"
@@ -313,8 +393,21 @@ def test_destination_inside_source_is_rejected(tmp_path: Path) -> None:
     assert caught.value.code == "destination_inside_source"
 
 
+def test_source_inside_series_destination_is_rejected(tmp_path: Path) -> None:
+    destination = tmp_path / "destination"
+    source = destination / "Show" / "incoming"
+    create_file(source / "Show.S01E01.mkv")
+
+    with pytest.raises(CollectorError) as caught:
+        scan_series("Show", source, destination, "move")
+
+    assert caught.value.code == "source_inside_destination"
+
+
 def test_missing_source_and_empty_name_are_rejected(tmp_path: Path) -> None:
     with pytest.raises(CollectorError, match="series_required"):
         scan_series("", tmp_path, tmp_path / "destination")
     with pytest.raises(CollectorError, match="source_missing"):
         scan_series("Show", tmp_path / "missing", tmp_path / "destination")
+    with pytest.raises(CollectorError, match="invalid_operation"):
+        scan_series("Show", tmp_path, tmp_path / "destination", "delete")

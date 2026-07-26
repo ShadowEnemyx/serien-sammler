@@ -64,10 +64,21 @@ $seriesName = [Microsoft.VisualBasic.Interaction]::InputBox(
 )
 if ([string]::IsNullOrWhiteSpace($seriesName)) { exit }
 
+$modeChoice = [System.Windows.Forms.MessageBox]::Show(
+    "Ja = Kopieren (Originale behalten)`nNein = Ausschneiden (Originale nach erfolgreicher Prüfung löschen)",
+    "Aktion auswählen",
+    [System.Windows.Forms.MessageBoxButtons]::YesNoCancel,
+    [System.Windows.Forms.MessageBoxIcon]::Question
+)
+if ($modeChoice -eq [System.Windows.Forms.DialogResult]::Cancel) { exit }
+$mode = if ($modeChoice -eq [System.Windows.Forms.DialogResult]::No) { "move" } else { "copy" }
+$actionLabel = if ($mode -eq "move") { "ausschneiden" } else { "kopieren" }
+
 $previewLines = @(Invoke-SeriesCollector -CollectorArguments @(
     "--source", $source,
     "--destination", $destination,
     "--series", $seriesName,
+    "--mode", $mode,
     "--preview"
 ) 2>&1)
 $previewStatus = $LASTEXITCODE
@@ -84,7 +95,7 @@ if ($previewStatus -ne 0) {
 }
 
 $copyChoice = [System.Windows.Forms.MessageBox]::Show(
-    "$previewText`n`nJetzt kopieren?",
+    "$previewText`n`nJetzt $actionLabel?",
     "Vorschau",
     [System.Windows.Forms.MessageBoxButtons]::YesNo,
     [System.Windows.Forms.MessageBoxIcon]::Question
@@ -95,6 +106,7 @@ if ($copyChoice -eq [System.Windows.Forms.DialogResult]::Yes) {
         "--source", $source,
         "--destination", $destination,
         "--series", $seriesName,
+        "--mode", $mode,
         "--remember-folders"
     )
 }

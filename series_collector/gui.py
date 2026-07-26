@@ -51,6 +51,7 @@ class SeriesCollectorApp(tk.Tk):
         self.source = tk.StringVar(value=str(config.get("source", "")))
         self.destination = tk.StringVar(value=str(config.get("destination", "")))
         self.series_name = tk.StringVar()
+        self.operation = tk.StringVar(value="copy")
         self.language_label = tk.StringVar(value=LANGUAGE_LABELS[self.language])
         self.check_updates = tk.BooleanVar(value=bool(config.get("check_updates", True)))
         self.summary_text = tk.StringVar()
@@ -138,12 +139,25 @@ class SeriesCollectorApp(tk.Tk):
         actions.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(0, 10))
         actions.columnconfigure(0, weight=1)
         actions.columnconfigure(1, weight=1)
+        actions.columnconfigure(2, weight=1)
+        mode_row = ttk.Frame(actions)
+        mode_row.grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        self.operation_label = ttk.Label(mode_row)
+        self.operation_label.grid(row=0, column=0, padx=(0, 8))
+        self.copy_mode_button = ttk.Radiobutton(
+            mode_row, variable=self.operation, value="copy", command=self._inputs_changed
+        )
+        self.copy_mode_button.grid(row=0, column=1, padx=(0, 12))
+        self.move_mode_button = ttk.Radiobutton(
+            mode_row, variable=self.operation, value="move", command=self._inputs_changed
+        )
+        self.move_mode_button.grid(row=0, column=2)
         self.preview_button = ttk.Button(actions, command=self._start_preview)
-        self.preview_button.grid(row=0, column=0, sticky="ew", padx=(0, 4))
+        self.preview_button.grid(row=1, column=0, sticky="ew", padx=(0, 4))
         self.copy_button = ttk.Button(actions, command=self._start_copy, state="disabled")
-        self.copy_button.grid(row=0, column=1, sticky="ew", padx=4)
+        self.copy_button.grid(row=1, column=1, sticky="ew", padx=4)
         self.cancel_button = ttk.Button(actions, command=self._cancel_copy, state="disabled")
-        self.cancel_button.grid(row=0, column=2, sticky="ew", padx=(4, 0))
+        self.cancel_button.grid(row=1, column=2, sticky="ew", padx=(4, 0))
 
         preview_frame = ttk.Frame(outer)
         preview_frame.grid(row=8, column=0, columnspan=3, sticky="nsew")
@@ -202,6 +216,9 @@ class SeriesCollectorApp(tk.Tk):
         self.source_label.configure(text=self._t("source"))
         self.destination_label.configure(text=self._t("destination"))
         self.series_label.configure(text=self._t("series"))
+        self.operation_label.configure(text=self._t("operation"))
+        self.copy_mode_button.configure(text=self._t("operation_copy"))
+        self.move_mode_button.configure(text=self._t("operation_move"))
         self.source_button.configure(text=self._t("browse"))
         self.destination_button.configure(text=self._t("browse"))
         self.preview_button.configure(text=self._t("preview"))
@@ -264,6 +281,8 @@ class SeriesCollectorApp(tk.Tk):
             self.source_entry,
             self.destination_entry,
             self.series_entry,
+            self.copy_mode_button,
+            self.move_mode_button,
         ):
             widget.configure(state=state)
         self.language_box.configure(state="disabled" if busy else "readonly")
@@ -280,13 +299,17 @@ class SeriesCollectorApp(tk.Tk):
         destination = Path(self.destination.get()).expanduser()
         threading.Thread(
             target=self._preview_worker,
-            args=(self.series_name.get(), source, destination),
+            args=(self.series_name.get(), source, destination, self.operation.get()),
             daemon=True,
         ).start()
 
-    def _preview_worker(self, series_name: str, source: Path, destination: Path) -> None:
+    def _preview_worker(
+        self, series_name: str, source: Path, destination: Path, operation: str
+    ) -> None:
         try:
-            self.events.put(("scan_complete", scan_series(series_name, source, destination)))
+            self.events.put(
+                ("scan_complete", scan_series(series_name, source, destination, operation))
+            )
         except (CollectorError, OSError) as error:
             self.events.put(("scan_error", error))
 
@@ -312,7 +335,13 @@ class SeriesCollectorApp(tk.Tk):
                 "end",
                 values=(
                     "✓" if item.selected else "—",
-                    self._t(item.destination_action),
+                    self._t(
+                        "action_cut_existing"
+                        if scan.operation == "move" and item.is_duplicate and not item.needs_move
+                        else "action_cut"
+                        if scan.operation == "move"
+                        else item.destination_action
+                    ),
                     item.season_label,
                     self._t(item.match_quality),
                     self._t(item.kind),
@@ -331,7 +360,10 @@ class SeriesCollectorApp(tk.Tk):
             selection = self.tree.selection()
             row = selection[0] if selection else ""
         item = self.row_items.get(row)
-        if not item or not item.requires_change:
+        if not item or not (
+            item.requires_change
+            or (self.current_scan and self.current_scan.operation == "move")
+        ):
             return
         source = str(item.source)
         if source in self.selected_sources:
@@ -348,7 +380,11 @@ class SeriesCollectorApp(tk.Tk):
     def _refresh_copy_button(self) -> None:
         enabled = bool(
             self.current_scan
-            and any(item.requires_change and str(item.source) in self.selected_sources for item in self.current_scan.items)
+            and any(
+                (item.requires_change or self.current_scan.operation == "move")
+                and str(item.source) in self.selected_sources
+                for item in self.current_scan.items
+            )
         )
         self.copy_button.configure(state="normal" if enabled and not self.copying else "disabled")
 
@@ -358,6 +394,12 @@ class SeriesCollectorApp(tk.Tk):
         scan = self.current_scan.with_selection(Path(path) for path in self.selected_sources)
         selected_count = sum(item.selected for item in scan.items)
         if not selected_count:
+            return
+        if scan.operation == "move" and not messagebox.askyesno(
+            self._t("confirm_move_title"),
+            self._t("confirm_move", count=selected_count),
+            parent=self,
+        ):
             return
         self.copying = True
         self.cancel_event.clear()
@@ -401,13 +443,18 @@ class SeriesCollectorApp(tk.Tk):
         self._save_settings()
         if summary.cancelled:
             message = self._t(
-                "status_cancelled", copied=summary.copied, moved=summary.moved, skipped=summary.skipped
+                "status_cancelled",
+                copied=summary.copied,
+                moved=summary.moved,
+                removed=summary.source_removed,
+                skipped=summary.skipped,
             )
         else:
             message = self._t(
                 "status_complete",
                 copied=summary.copied,
                 moved=summary.moved,
+                removed=summary.source_removed,
                 skipped=summary.skipped,
                 failed=summary.failed,
             )
@@ -422,6 +469,15 @@ class SeriesCollectorApp(tk.Tk):
             open_folder(summary.target)
         if self.close_when_done:
             self.destroy()
+            return
+        if (
+            self.current_scan
+            and self.current_scan.operation == "move"
+            and not summary.cancelled
+            and summary.failed == 0
+        ):
+            self._inputs_changed()
+            self.counter_text.set("")
             return
         self._start_preview()
 

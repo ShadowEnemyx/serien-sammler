@@ -61,7 +61,24 @@ APPLESCRIPT
 )
 [[ -z "$SERIES_NAME" ]] && exit 0
 
-PREVIEW_OUTPUT="$($PYTHON_EXECUTABLE serien_sammler.py --source "$SOURCE_FOLDER" --destination "$DESTINATION_FOLDER" --series "$SERIES_NAME" --preview 2>&1)"
+MODE_CHOICE=$(
+  /usr/bin/osascript <<'APPLESCRIPT'
+try
+  button returned of (display dialog "Was soll mit den gefundenen Originaldateien passieren?" & return & return & "Kopieren: Originale bleiben erhalten." & return & "Ausschneiden: Originale werden erst nach erfolgreicher Prüfung der Zielkopie gelöscht." buttons {"Abbrechen", "Ausschneiden", "Kopieren"} default button "Kopieren" cancel button "Abbrechen" with title "Aktion auswählen")
+on error number -128
+  return "Abbrechen"
+end try
+APPLESCRIPT
+)
+[[ "$MODE_CHOICE" == "Abbrechen" ]] && exit 0
+MODE="copy"
+ACTION_LABEL="kopieren"
+if [[ "$MODE_CHOICE" == "Ausschneiden" ]]; then
+  MODE="move"
+  ACTION_LABEL="ausschneiden"
+fi
+
+PREVIEW_OUTPUT="$($PYTHON_EXECUTABLE serien_sammler.py --source "$SOURCE_FOLDER" --destination "$DESTINATION_FOLDER" --series "$SERIES_NAME" --mode "$MODE" --preview 2>&1)"
 PREVIEW_STATUS=$?
 export PREVIEW_OUTPUT
 
@@ -72,16 +89,17 @@ APPLESCRIPT
   exit $PREVIEW_STATUS
 fi
 
+export ACTION_LABEL
 CONFIRM_COPY=$(
   /usr/bin/osascript <<'APPLESCRIPT'
 try
-  button returned of (display dialog (system attribute "PREVIEW_OUTPUT") & return & return & "Jetzt kopieren?" buttons {"Abbrechen", "Kopieren"} default button "Kopieren" cancel button "Abbrechen" with title "Vorschau")
+  button returned of (display dialog (system attribute "PREVIEW_OUTPUT") & return & return & "Jetzt " & (system attribute "ACTION_LABEL") & "?" buttons {"Abbrechen", "Starten"} default button "Starten" cancel button "Abbrechen" with title "Vorschau")
 on error number -128
   return "Abbrechen"
 end try
 APPLESCRIPT
 )
 
-if [[ "$CONFIRM_COPY" == "Kopieren" ]]; then
-  $PYTHON_EXECUTABLE serien_sammler.py --source "$SOURCE_FOLDER" --destination "$DESTINATION_FOLDER" --series "$SERIES_NAME" --remember-folders
+if [[ "$CONFIRM_COPY" == "Starten" ]]; then
+  $PYTHON_EXECUTABLE serien_sammler.py --source "$SOURCE_FOLDER" --destination "$DESTINATION_FOLDER" --series "$SERIES_NAME" --mode "$MODE" --remember-folders
 fi
