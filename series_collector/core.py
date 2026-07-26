@@ -21,6 +21,7 @@ from uuid import uuid4
 VIDEO_EXTENSIONS = {".mkv", ".mp4"}
 SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".vtt", ".sub"}
 SUPPORTED_EXTENSIONS = VIDEO_EXTENSIONS | SUBTITLE_EXTENSIONS
+OPERATIONS = {"copy", "move"}
 MANIFEST_NAME = ".serien-sammler-manifest.json"
 MANIFEST_VERSION = 2
 CONFIG_PATH = Path.home() / ".serien-sammler-config.json"
@@ -97,6 +98,7 @@ class ScanResult:
     destination: Path
     target: Path
     items: tuple[ScanItem, ...]
+    operation: str = "copy"
 
     @property
     def video_count(self) -> int:
@@ -131,7 +133,11 @@ class ScanResult:
         return replace(
             self,
             items=tuple(
-                replace(item, selected=str(item.source) in selected and item.requires_change)
+                replace(
+                    item,
+                    selected=str(item.source) in selected
+                    and (item.requires_change or self.operation == "move"),
+                )
                 for item in self.items
             ),
         )
@@ -145,6 +151,7 @@ class CopyProgress:
     action: str
     copied: int
     moved: int
+    source_removed: int
     skipped: int
     failed: int
     error: str = ""
@@ -157,6 +164,7 @@ class CopySummary:
     processed: int
     copied: int
     moved: int
+    source_removed: int
     skipped: int
     failed: int
     cancelled: bool
@@ -387,7 +395,11 @@ def _target_index(target: Path) -> dict[str, Path]:
     return index
 
 
-def scan_series(name_input: str, source: Path, destination: Path) -> ScanResult:
+def scan_series(
+    name_input: str, source: Path, destination: Path, operation: str = "copy"
+) -> ScanResult:
+    if operation not in OPERATIONS:
+        raise CollectorError("invalid_operation", operation=operation)
     series_name = folder_name(name_input)
     if not series_name:
         raise CollectorError("series_required")
@@ -397,6 +409,8 @@ def scan_series(name_input: str, source: Path, destination: Path) -> ScanResult:
     target = destination / series_name
     if target_is_inside_source(source, target):
         raise CollectorError("destination_inside_source")
+    if target_is_inside_source(target, source):
+        raise CollectorError("source_inside_destination")
 
     target_index = _target_index(target)
     planned_fingerprints: dict[str, Path] = {}
@@ -440,8 +454,13 @@ def scan_series(name_input: str, source: Path, destination: Path) -> ScanResult:
                 planned_destination=planned,
                 season=season,
                 selected=quality != "ambiguous"
-                and not duplicate_in_scan
-                and (existing is None or existing.parent != planned.parent),
+                and (
+                    operation == "move"
+                    or (
+                        not duplicate_in_scan
+                        and (existing is None or existing.parent != planned.parent)
+                    )
+                ),
                 duplicate_in_scan=duplicate_in_scan,
             )
         )
@@ -452,6 +471,7 @@ def scan_series(name_input: str, source: Path, destination: Path) -> ScanResult:
         destination=destination,
         target=target,
         items=tuple(items),
+        operation=operation,
     )
 
 
@@ -501,7 +521,7 @@ def copy_series(
     manifest["schema_version"] = MANIFEST_VERSION
     target_index = _target_index(scan.target)
     selected_items = tuple(item for item in scan.items if item.selected)
-    copied = moved = skipped = failed = processed = 0
+    copied = moved = source_removed = skipped = failed = processed = 0
     cancelled = False
     errors: list[str] = []
 
@@ -534,8 +554,9 @@ def copy_series(
                     moved += 1
                     action = "moved"
                 else:
-                    skipped += 1
-                    action = "skipped"
+                    if scan.operation == "copy":
+                        skipped += 1
+                        action = "skipped"
             else:
                 output_path = item.planned_destination
                 if output_path.exists():
@@ -553,6 +574,11 @@ def copy_series(
 
             _record_manifest_file(manifest, current_fingerprint, output_path, item.source, scan.target)
             save_manifest(scan.target, manifest)
+            if scan.operation == "move":
+                logger.info("Removing verified source file %s", item.source)
+                item.source.unlink()
+                source_removed += 1
+                action = "source_removed"
         except OSError as error:
             failed += 1
             action = "failed"
@@ -575,6 +601,7 @@ def copy_series(
                     action=action,
                     copied=copied,
                     moved=moved,
+                    source_removed=source_removed,
                     skipped=skipped,
                     failed=failed,
                     error=error_text,
@@ -587,6 +614,7 @@ def copy_series(
         processed=processed,
         copied=copied,
         moved=moved,
+        source_removed=source_removed,
         skipped=skipped,
         failed=failed,
         cancelled=cancelled,

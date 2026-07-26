@@ -36,7 +36,7 @@ def _print_preview(language: str, scan: object) -> None:
             subtitles=scan.subtitle_count,
             new=scan.new_count,
             existing=scan.existing_count,
-            selected=scan.selected_new_count,
+            selected=sum(item.selected for item in scan.items),
             moved=scan.move_count,
             ambiguous=scan.ambiguous_count,
             target=scan.target,
@@ -48,6 +48,7 @@ def _progress_printer(language: str, progress: CopyProgress) -> None:
     key = {
         "copied": "cli_copy",
         "moved": "cli_move",
+        "source_removed": "cli_source_removed",
         "skipped": "cli_skip",
         "failed": "cli_fail",
     }[progress.action]
@@ -68,6 +69,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--source", help="Folder to search recursively")
     parser.add_argument("--destination", help="Parent folder for the series folder")
     parser.add_argument("--preview", action="store_true", help="Show planned changes without copying")
+    parser.add_argument(
+        "--mode",
+        choices=("copy", "move"),
+        default="copy",
+        help="Copy files (default) or move them by deleting verified originals",
+    )
     parser.add_argument("--remember-folders", action="store_true", help="Remember source and destination")
     parser.add_argument("--language", choices=("de", "en"), help="Interface language")
     parser.add_argument("--include-ambiguous", action="store_true", help="Include ambiguous filename matches")
@@ -128,7 +135,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     source = Path(source_value).expanduser()
     destination = Path(destination_value).expanduser()
     try:
-        scan = scan_series(series_name, source, destination)
+        scan = scan_series(series_name, source, destination, arguments.mode)
     except (CollectorError, OSError) as error:
         message = _error_message(language, error) if isinstance(error, CollectorError) else str(error)
         print(message, file=sys.stderr)
@@ -151,6 +158,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             "cli_done",
             copied=summary.copied,
             moved=summary.moved,
+            removed=summary.source_removed,
             skipped=summary.skipped,
             failed=summary.failed,
         )

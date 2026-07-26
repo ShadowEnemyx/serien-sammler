@@ -34,7 +34,7 @@ def test_preview_in_english(tmp_path: Path, capsys: object) -> None:
     output = capsys.readouterr().out
     assert result == 0
     assert "Found: 1 video(s) and 1 subtitle file(s)" in output
-    assert "New to copy: 2" in output
+    assert "Selected for this action: 2" in output
 
 
 def test_preview_in_german(tmp_path: Path, capsys: object) -> None:
@@ -60,7 +60,7 @@ def test_preview_in_german(tmp_path: Path, capsys: object) -> None:
     output = capsys.readouterr().out
     assert result == 0
     assert "Gefunden: 1 Video(s)" in output
-    assert "Neu zu kopieren: 1" in output
+    assert "Für die Aktion ausgewählt: 1" in output
 
 
 def test_no_matches_returns_one(tmp_path: Path, capsys: object) -> None:
@@ -84,6 +84,37 @@ def test_no_matches_returns_one(tmp_path: Path, capsys: object) -> None:
 
     assert result == 1
     assert "No matching" in capsys.readouterr().out
+
+
+def test_move_mode_removes_verified_source(
+    tmp_path: Path, capsys: object, monkeypatch: object
+) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    source.mkdir()
+    episode = source / "Show.S01E01.mkv"
+    episode.write_bytes(b"video")
+    monkeypatch.setattr("series_collector.cli.open_folder", lambda _folder: None)
+
+    result = main(
+        [
+            "--source",
+            str(source),
+            "--destination",
+            str(destination),
+            "--series",
+            "Show",
+            "--language",
+            "en",
+            "--mode",
+            "move",
+        ]
+    )
+
+    assert result == 0
+    assert not episode.exists()
+    assert (destination / "Show" / "S01" / episode.name).is_file()
+    assert "1 originals removed" in capsys.readouterr().out
 
 
 def test_cli_update_check(monkeypatch: object, capsys: object) -> None:

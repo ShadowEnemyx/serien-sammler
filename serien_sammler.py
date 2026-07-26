@@ -15,7 +15,6 @@ from series_collector.core import (
     ScanResult,
     copy_series,
     default_language,
-    existing_destination,
     folder_name,
     free_name,
     load_config,
