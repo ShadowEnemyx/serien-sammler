@@ -342,7 +342,9 @@ def save_config(
 
 
 def classify_match(filename: str, keyword: str) -> Optional[str]:
-    compact_name = normalise_for_search(Path(filename).stem)
+    candidate = Path(filename)
+    search_text = candidate.stem if candidate.suffix.casefold() in SUPPORTED_EXTENSIONS else filename
+    compact_name = normalise_for_search(search_text)
     compact_keyword = normalise_for_search(keyword)
     if not compact_keyword or compact_keyword not in compact_name:
         return None
@@ -353,11 +355,30 @@ def classify_match(filename: str, keyword: str) -> Optional[str]:
     if re.match(r"^(?:s\d{1,3}(?:e\d{1,4})?|e\d{1,4}|season\d|staffel\d|\d{3,4}p|\d{4}(?:\D|$))", remainder):
         return "exact"
 
-    separated_name = re.sub(r"[^\w]+", " ", Path(filename).stem.casefold(), flags=re.UNICODE).strip()
+    separated_name = re.sub(r"[^\w]+", " ", search_text.casefold(), flags=re.UNICODE).strip()
     separated_keyword = re.sub(r"[^\w]+", " ", keyword.casefold(), flags=re.UNICODE).strip()
     if separated_keyword and re.search(rf"(?<!\w){re.escape(separated_keyword)}(?!\w)", separated_name):
         return "likely"
     return "ambiguous"
+
+
+def classify_path_match(path: Path, keyword: str, source: Path) -> Optional[str]:
+    """Classify a file using both its filename and its folders below the source."""
+    candidates = [path.name]
+    try:
+        candidates.extend(reversed(path.parent.relative_to(source).parts))
+    except ValueError:
+        pass
+
+    qualities = {
+        quality
+        for candidate in candidates
+        if (quality := classify_match(candidate, keyword)) is not None
+    }
+    for quality in ("exact", "likely", "ambiguous"):
+        if quality in qualities:
+            return quality
+    return None
 
 
 def matching_files(source: Path, keyword: str) -> list[Path]:
@@ -368,7 +389,7 @@ def matching_files(source: Path, keyword: str) -> list[Path]:
         and not path.name.startswith("._")
         and "sample" not in path.name.casefold()
         and path.suffix.casefold() in SUPPORTED_EXTENSIONS
-        and classify_match(path.name, keyword) is not None
+        and classify_path_match(path, keyword, source) is not None
     )
 
 
@@ -442,7 +463,7 @@ def scan_series(
             reserved.add(planned.name.casefold())
         if not existing and not duplicate_in_scan:
             planned_fingerprints[content_key] = planned
-        quality = classify_match(file.name, series_name) or "ambiguous"
+        quality = classify_path_match(file, series_name, source) or "ambiguous"
         kind = "video" if file.suffix.casefold() in VIDEO_EXTENSIONS else "subtitle"
         items.append(
             ScanItem(
