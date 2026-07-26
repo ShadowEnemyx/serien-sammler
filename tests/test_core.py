@@ -96,6 +96,25 @@ def test_scan_finds_all_episodes_when_series_name_is_only_in_folder(
     assert classify_path_match(season / "S01E01.mkv", "Ghost Whisperer", source) == "exact"
 
 
+def test_scan_finds_avi_episodes_and_sorts_sxxepxx_names(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    for episode in range(1, 5):
+        create_file(
+            source
+            / "Drake.and.Josh.S04.COMPLETE"
+            / f"Drake.and.Josh.S04EP{episode:02d}.avi",
+            bytes([episode]),
+        )
+
+    scan = scan_series("Drake.and.Josh", source, destination)
+
+    assert scan.video_count == 4
+    assert sum(item.selected for item in scan.items) == 4
+    assert {item.season for item in scan.items} == {4}
+    assert {item.planned_destination.parent.name for item in scan.items} == {"S04"}
+
+
 def test_sample_files_are_never_collected(tmp_path: Path) -> None:
     source = tmp_path / "source"
     destination = tmp_path / "destination"

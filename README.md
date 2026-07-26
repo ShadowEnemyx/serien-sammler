@@ -32,7 +32,7 @@ Builds are signed automatically when the repository owner has configured signing
 - Verified temporary copies, progress display, and safe cancellation between files
 - Optional daily update notification plus manual update check
 - Local rotating logs and an exportable diagnostic report; no telemetry
-- Supports `.mkv`, `.mp4`, `.srt`, `.ass`, `.ssa`, `.vtt`, and `.sub`
+- Supports `.avi`, `.mkv`, `.mp4`, `.srt`, `.ass`, `.ssa`, `.vtt`, and `.sub`
 
 The destination folder must not be inside the source folder. Existing version 1 manifests and configuration files are migrated automatically.
 
@@ -58,7 +58,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-PyInstaller and Pillow are pinned in `requirements-build.txt`. Tags such as `v1.3.1` test and build Windows x64, macOS Apple Silicon, and macOS Intel artifacts, exercise the installer/DMGs, create SHA-256 checksums, and publish a release.
+PyInstaller and Pillow are pinned in `requirements-build.txt`. Tags such as `v1.3.2` test and build Windows x64, macOS Apple Silicon, and macOS Intel artifacts, exercise the installer/DMGs, create SHA-256 checksums, and publish a release.
 
 Optional GitHub Actions secrets enable official signing:
 
