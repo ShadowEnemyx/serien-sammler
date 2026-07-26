@@ -32,7 +32,7 @@ Builds werden automatisch signiert, sobald der Repository-Besitzer Signierungsze
 - Geprüfte temporäre Kopien, Fortschrittsanzeige und sicheres Abbrechen zwischen Dateien
 - Optionale tägliche Update-Benachrichtigung und manuelle Update-Prüfung
 - Lokale rotierende Protokolle und exportierbarer Diagnosebericht; keine Telemetrie
-- Unterstützt `.mkv`, `.mp4`, `.srt`, `.ass`, `.ssa`, `.vtt` und `.sub`
+- Unterstützt `.avi`, `.mkv`, `.mp4`, `.srt`, `.ass`, `.ssa`, `.vtt` und `.sub`
 
 Der Zielordner darf nicht innerhalb des Suchordners liegen. Vorhandene Manifeste der Version 1 und alte Konfigurationsdateien werden automatisch übernommen.
 
@@ -58,7 +58,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-PyInstaller und Pillow sind in `requirements-build.txt` fest angeheftet. Tags wie `v1.3.1` testen und bauen Windows x64, macOS Apple Silicon und macOS Intel, prüfen Installer und DMGs, erzeugen SHA-256-Prüfsummen und veröffentlichen das Release.
+PyInstaller und Pillow sind in `requirements-build.txt` fest angeheftet. Tags wie `v1.3.2` testen und bauen Windows x64, macOS Apple Silicon und macOS Intel, prüfen Installer und DMGs, erzeugen SHA-256-Prüfsummen und veröffentlichen das Release.
 
 Optionale GitHub-Actions-Secrets aktivieren die offizielle Signierung:
 

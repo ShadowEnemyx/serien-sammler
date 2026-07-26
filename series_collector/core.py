@@ -18,7 +18,7 @@ from typing import Callable, Iterable, Optional
 from uuid import uuid4
 
 
-VIDEO_EXTENSIONS = {".mkv", ".mp4"}
+VIDEO_EXTENSIONS = {".avi", ".mkv", ".mp4"}
 SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".vtt", ".sub"}
 SUPPORTED_EXTENSIONS = VIDEO_EXTENSIONS | SUBTITLE_EXTENSIONS
 OPERATIONS = {"copy", "move"}
