@@ -8,6 +8,7 @@ from series_collector.core import (
     MANIFEST_NAME,
     CollectorError,
     classify_match,
+    classify_path_match,
     copy_series,
     default_language,
     detect_season,
@@ -73,6 +74,26 @@ def test_scan_finds_videos_and_subtitles(tmp_path: Path) -> None:
     assert scan.subtitle_count == 2
     assert scan.new_count == 3
     assert scan.existing_count == 0
+
+
+def test_scan_finds_all_episodes_when_series_name_is_only_in_folder(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    season = source / "Ghost.Whisperer" / "Staffel 1"
+    for episode in range(1, 7):
+        create_file(season / f"S01E{episode:02d}.mkv", bytes([episode]))
+    create_file(season / "S01E01.srt", b"subtitle")
+    create_file(source / "Other.Show" / "S01E01.mkv", b"other")
+
+    scan = scan_series("Ghost Whisperer", source, destination)
+
+    assert scan.video_count == 6
+    assert scan.subtitle_count == 1
+    assert sum(item.selected for item in scan.items) == 7
+    assert {item.season for item in scan.items} == {1}
+    assert classify_path_match(season / "S01E01.mkv", "Ghost Whisperer", source) == "exact"
 
 
 def test_sample_files_are_never_collected(tmp_path: Path) -> None:
