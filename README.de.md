@@ -31,6 +31,7 @@ Builds werden automatisch signiert, sobald der Repository-Besitzer Signierungsze
 - Verschiedene Dateien mit gleichem Namen bleiben als ` (2)`, ` (3)` usw. erhalten
 - Geprüfte temporäre Kopien, Fortschrittsanzeige und sicheres Abbrechen zwischen Dateien
 - Optionale tägliche Update-Benachrichtigung und manuelle Update-Prüfung
+- Updates können direkt aus der App heruntergeladen, mit der GitHub-Prüfsumme verifiziert und nach Bestätigung installiert werden
 - Lokale rotierende Protokolle und exportierbarer Diagnosebericht; keine Telemetrie
 - Unterstützt `.avi`, `.mkv`, `.mp4`, `.srt`, `.ass`, `.ssa`, `.vtt` und `.sub`
 
@@ -58,7 +59,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-PyInstaller und Pillow sind in `requirements-build.txt` fest angeheftet. Tags wie `v1.4.0` testen und bauen Windows x64, macOS Apple Silicon und macOS Intel, prüfen Installer und DMGs, erzeugen SHA-256-Prüfsummen und veröffentlichen das Release.
+PyInstaller und Pillow sind in `requirements-build.txt` fest angeheftet. Tags wie `v1.5.0` testen und bauen Windows x64, macOS Apple Silicon und macOS Intel, prüfen Installer und DMGs, erzeugen SHA-256-Prüfsummen und veröffentlichen das Release.
 
 Optionale GitHub-Actions-Secrets aktivieren die offizielle Signierung:
 
