@@ -64,7 +64,7 @@ APPLESCRIPT
 MODE_CHOICE=$(
   /usr/bin/osascript <<'APPLESCRIPT'
 try
-  button returned of (display dialog "Was soll mit den gefundenen Originaldateien passieren?" & return & return & "Kopieren: Originale bleiben erhalten." & return & "Ausschneiden: Originale werden erst nach erfolgreicher Prüfung der Zielkopie gelöscht." buttons {"Abbrechen", "Ausschneiden", "Kopieren"} default button "Kopieren" cancel button "Abbrechen" with title "Aktion auswählen")
+  button returned of (display dialog "Was soll mit den gefundenen Originaldateien passieren?" & return & return & "Kopieren: Originale bleiben erhalten." & return & "Ausschneiden: Originale werden erst nach erfolgreicher Prüfung der Zielkopie in den Papierkorb verschoben." buttons {"Abbrechen", "Ausschneiden", "Kopieren"} default button "Kopieren" cancel button "Abbrechen" with title "Aktion auswählen")
 on error number -128
   return "Abbrechen"
 end try

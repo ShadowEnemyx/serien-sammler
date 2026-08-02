@@ -2,7 +2,7 @@
 
 [Deutsche Anleitung](README.de.md)
 
-Series Collector finds matching video and subtitle files in nested folders and safely collects them in one destination folder. You choose whether originals are kept or removed after a verified move.
+Series Collector finds matching video and subtitle files in nested folders and safely collects them in one destination folder. You choose whether originals are kept or sent to the system Trash after a verified move.
 
 ## Download
 
@@ -26,7 +26,7 @@ Builds are signed automatically when the repository owner has configured signing
 - Previously collected episodes in the series root are safely sorted into their detected season on the next run
 - Files containing `sample` anywhere in their filename are always ignored, regardless of letter case
 - Selectable preview with source path and planned copy, skip, or rename action
-- Choice between **Copy** (the default) and **Move**; move deletes each original only after its destination copy has been created and content-verified successfully. It then removes a completed source folder together with its remaining files; the configured source root is protected.
+- Choice between **Copy** (the default) and **Move**; move sends originals to the system Trash only after a destination copy has been created and content-verified successfully. When every recognised series file in a source folder is complete, the whole folder—including remaining files such as notes—is sent to the Trash. The configured source root is protected.
 - Content fingerprints prevent duplicate copies even when source paths or filenames differ
 - Different files with the same name are kept as ` (2)`, ` (3)`, and so on
 - Verified temporary copies, progress display, and safe cancellation between files
@@ -50,7 +50,7 @@ python3 serien_sammler.py \
   --preview
 ```
 
-Remove `--preview` to copy. Add `--mode move` to move files safely instead; verified originals are deleted and completed source folders including their remaining files are removed. The configured source root is never deleted. Optional switches include `--remember-folders`, `--include-ambiguous`, `--check-updates`, and `--log-file /path/to/log.txt`. The `.command`, `.bat`, and PowerShell launchers remain source-code fallbacks.
+Remove `--preview` to copy. Add `--mode move` to move files safely instead; verified originals and completed source folders are sent to the system Trash, so they can be restored until the Trash is emptied. The configured source root is never sent to the Trash. Optional switches include `--remember-folders`, `--include-ambiguous`, `--check-updates`, and `--log-file /path/to/log.txt`. The `.command`, `.bat`, and PowerShell launchers remain source-code fallbacks.
 
 ## Development and releases
 
@@ -59,7 +59,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-PyInstaller and Pillow are pinned in `requirements-build.txt`. Tags such as `v1.5.0` test and build Windows x64, macOS Apple Silicon, and macOS Intel artifacts, exercise the installer/DMGs, create SHA-256 checksums, and publish a release.
+PyInstaller and Pillow are pinned in `requirements-build.txt`. Tags such as `v1.6.0` test and build Windows x64, macOS Apple Silicon, and macOS Intel artifacts, exercise the installer/DMGs, create SHA-256 checksums, and publish a release.
 
 Optional GitHub Actions secrets enable official signing:
 

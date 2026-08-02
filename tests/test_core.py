@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -33,6 +34,24 @@ def visible_files(folder: Path) -> list[str]:
         for path in folder.rglob("*")
         if path.is_file() and not any(part.startswith(".") for part in path.relative_to(folder).parts)
     )
+
+
+@pytest.fixture(autouse=True)
+def fake_system_trash(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """Keep move-mode tests out of the real macOS Trash."""
+    trash = tmp_path / "trash"
+    trash.mkdir()
+
+    def move_to_fake_trash(path: Path) -> None:
+        destination = trash / path.name
+        number = 2
+        while destination.exists():
+            destination = trash / f"{path.stem} ({number}){path.suffix}"
+            number += 1
+        shutil.move(str(path), str(destination))
+
+    monkeypatch.setattr("series_collector.core.move_to_trash", move_to_fake_trash)
+    return trash
 
 
 def test_name_normalisation_ignores_separators() -> None:
@@ -141,7 +160,7 @@ def test_copy_mode_keeps_source_file(tmp_path: Path) -> None:
     assert episode.is_file()
 
 
-def test_move_mode_removes_source_only_after_verified_copy(tmp_path: Path) -> None:
+def test_move_mode_moves_source_to_trash_only_after_verified_copy(tmp_path: Path, fake_system_trash: Path) -> None:
     source = tmp_path / "source"
     destination = tmp_path / "destination"
     episode = create_file(source / "Show.S01E01.mkv", b"episode")
@@ -153,11 +172,14 @@ def test_move_mode_removes_source_only_after_verified_copy(tmp_path: Path) -> No
     assert summary.source_folders_removed == 0
     assert summary.failed == 0
     assert not episode.exists()
+    assert (fake_system_trash / episode.name).read_bytes() == b"episode"
     assert source.is_dir()
     assert (destination / "Show" / "S01" / episode.name).read_bytes() == b"episode"
 
 
-def test_move_mode_removes_completed_parent_folder_and_its_leftovers(tmp_path: Path) -> None:
+def test_move_mode_moves_completed_parent_folder_and_leftovers_to_trash(
+    tmp_path: Path, fake_system_trash: Path
+) -> None:
     source = tmp_path / "source"
     destination = tmp_path / "destination"
     release_folder = source / "Show.S01.COMPLETE"
@@ -170,6 +192,7 @@ def test_move_mode_removes_completed_parent_folder_and_its_leftovers(tmp_path: P
     assert summary.source_removed == 2
     assert summary.source_folders_removed == 1
     assert not release_folder.exists()
+    assert (fake_system_trash / release_folder.name / "release-notes.txt").read_bytes() == b"leftover"
     assert source.is_dir()
     assert visible_files(destination / "Show") == [
         "S01/Show.S01E01.mkv",
@@ -177,7 +200,9 @@ def test_move_mode_removes_completed_parent_folder_and_its_leftovers(tmp_path: P
     ]
 
 
-def test_move_mode_keeps_parent_folder_when_an_unselected_match_remains(tmp_path: Path) -> None:
+def test_move_mode_moves_only_selected_file_to_trash_when_unselected_match_remains(
+    tmp_path: Path, fake_system_trash: Path
+) -> None:
     source = tmp_path / "source"
     destination = tmp_path / "destination"
     release_folder = source / "release"
@@ -188,6 +213,7 @@ def test_move_mode_keeps_parent_folder_when_an_unselected_match_remains(tmp_path
     summary = copy_series(scan_series("Show", source, destination, "move"))
 
     assert not selected.exists()
+    assert (fake_system_trash / selected.name).read_bytes() == b"selected"
     assert ambiguous.is_file()
     assert release_folder.is_dir()
     assert summary.source_folders_removed == 0
@@ -246,6 +272,28 @@ def test_move_mode_cancel_preserves_unprocessed_sources(tmp_path: Path) -> None:
     assert not episodes[0].exists()
     assert episodes[1].exists()
     assert episodes[2].exists()
+
+
+def test_move_mode_defers_folder_trash_when_cancelled_mid_release(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    release = source / "Show.S01.COMPLETE"
+    episodes = [create_file(release / f"Show.S01E0{number}.mkv", bytes([number])) for number in range(1, 4)]
+    cancelled = False
+
+    def progress(_event: object) -> None:
+        nonlocal cancelled
+        cancelled = True
+
+    summary = copy_series(
+        scan_series("Show", source, destination, "move"),
+        progress_callback=progress,
+        cancel_requested=lambda: cancelled,
+    )
+
+    assert summary.cancelled is True
+    assert summary.source_removed == 0
+    assert all(episode.is_file() for episode in episodes)
 
 
 def test_repeat_run_skips_known_files_and_adds_new_files(tmp_path: Path) -> None:

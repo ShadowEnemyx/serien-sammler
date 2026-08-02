@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 from series_collector import __version__
@@ -95,6 +96,11 @@ def test_move_mode_removes_verified_source(
     episode = source / "Show.S01E01.mkv"
     episode.write_bytes(b"video")
     monkeypatch.setattr("series_collector.cli.open_folder", lambda _folder: None)
+    trash = tmp_path / "trash"
+    trash.mkdir()
+    monkeypatch.setattr(
+        "series_collector.core.move_to_trash", lambda path: shutil.move(str(path), str(trash / path.name))
+    )
 
     result = main(
         [
@@ -114,7 +120,7 @@ def test_move_mode_removes_verified_source(
     assert result == 0
     assert not episode.exists()
     assert (destination / "Show" / "S01" / episode.name).is_file()
-    assert "1 originals removed" in capsys.readouterr().out
+    assert "1 originals in Trash" in capsys.readouterr().out
 
 
 def test_cli_update_check(monkeypatch: object, capsys: object) -> None:

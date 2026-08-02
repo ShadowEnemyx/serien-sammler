@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Callable, Iterable, Optional
 from uuid import uuid4
 
+from series_collector.trash import move_to_trash
+
 
 VIDEO_EXTENSIONS = {".avi", ".mkv", ".mp4"}
 SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".vtt", ".sub"}
@@ -533,33 +535,30 @@ def _record_manifest_file(
         sources[str(signature["source"])] = {"modified": signature["modified"]}
 
 
-def _remove_completed_source_folder(scan: ScanResult, item: ScanItem) -> bool:
-    """Remove one source-file parent after every scanned file in it is gone.
-
-    The configured source root is never removed. This deliberately also removes
-    non-media leftovers in a completed release folder, as requested by the user.
-    """
+def _completed_source_folder(
+    scan: ScanResult, item: ScanItem, completed_sources: set[Path]
+) -> Optional[tuple[Path, tuple[ScanItem, ...]]]:
+    """Return a source folder only when every recognised item in it is complete."""
     folder = item.source.parent
     try:
         source_root = scan.source.resolve()
         folder.resolve().relative_to(source_root)
     except (OSError, ValueError):
-        return False
+        return None
     if folder.resolve() == source_root:
-        return False
+        return None
 
-    if any(candidate.source.exists() for candidate in scan.items if candidate.source.parent == folder):
-        return False
-
-    logger.info("Removing completed source folder %s", folder)
-    shutil.rmtree(folder)
-    return True
+    members = tuple(candidate for candidate in scan.items if candidate.source.parent == folder)
+    if not members or not all(candidate.selected and candidate.source in completed_sources for candidate in members):
+        return None
+    return folder, members
 
 
 def copy_series(
     scan: ScanResult,
     progress_callback: Optional[Callable[[CopyProgress], None]] = None,
     cancel_requested: Optional[Callable[[], bool]] = None,
+    trash_handler: Optional[Callable[[Path], None]] = None,
 ) -> CopySummary:
     scan.target.mkdir(parents=True, exist_ok=True)
     manifest = load_manifest(scan.target)
@@ -570,6 +569,8 @@ def copy_series(
     copied = moved = source_removed = source_folders_removed = skipped = failed = processed = 0
     cancelled = False
     errors: list[str] = []
+    completed_sources: set[Path] = set()
+    trash = trash_handler or move_to_trash
 
     for item in selected_items:
         if cancel_requested and cancel_requested():
@@ -621,13 +622,22 @@ def copy_series(
             _record_manifest_file(manifest, current_fingerprint, output_path, item.source, scan.target)
             save_manifest(scan.target, manifest)
             if scan.operation == "move":
-                logger.info("Removing verified source file %s", item.source)
-                item.source.unlink()
-                source_removed += 1
-                action = "source_removed"
-                if _remove_completed_source_folder(scan, item):
+                completed_sources.add(item.source)
+                completed_folder = _completed_source_folder(scan, item, completed_sources)
+                if completed_folder:
+                    folder, members = completed_folder
+                    logger.info("Moving completed source folder to Trash: %s", folder)
+                    trash(folder)
+                    source_removed += len(members)
                     source_folders_removed += 1
                     action = "source_folder_removed"
+                elif item.source.parent.resolve() == scan.source.resolve() or any(
+                    candidate.source.parent == item.source.parent and not candidate.selected for candidate in scan.items
+                ):
+                    logger.info("Moving verified source file to Trash: %s", item.source)
+                    trash(item.source)
+                    source_removed += 1
+                    action = "source_removed"
         except OSError as error:
             failed += 1
             action = "failed"
