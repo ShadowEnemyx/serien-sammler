@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+import certifi
+
 
 version_values = {}
 exec((Path(SPECPATH) / "series_collector" / "__init__.py").read_text(encoding="utf-8"), version_values)
@@ -13,7 +15,7 @@ analysis = Analysis(
     ["series_collector/gui.py"],
     pathex=[SPECPATH],
     binaries=[],
-    datas=[("assets/app-icon.png", "assets")],
+    datas=[("assets/app-icon.png", "assets"), (certifi.where(), "certifi")],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
