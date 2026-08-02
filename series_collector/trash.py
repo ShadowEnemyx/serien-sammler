@@ -18,7 +18,8 @@ class TrashError(OSError):
 
 def _macos_trash(path: Path) -> None:
     script = """on run argv
-tell application \"Finder\" to delete POSIX file (item 1 of argv)
+set sourceItem to POSIX file (item 1 of argv) as alias
+tell application \"Finder\" to delete sourceItem
 end run"""
     try:
         result = subprocess.run(
