@@ -8,6 +8,7 @@ import os
 import platform
 import shlex
 import shutil
+import ssl
 import stat
 import subprocess
 import sys
@@ -18,6 +19,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Optional
 from urllib.request import Request, urlopen
+
+import certifi
 
 from series_collector import __version__
 
@@ -60,6 +63,12 @@ class PreparedUpdate:
     launcher: tuple[str, ...]
 
 
+def secure_urlopen(request: Request, timeout: int) -> object:
+    """Open GitHub HTTPS URLs with the bundled, current CA certificate list."""
+    context = ssl.create_default_context(cafile=certifi.where())
+    return urlopen(request, timeout=timeout, context=context)
+
+
 def version_tuple(value: str) -> tuple[int, ...]:
     cleaned = value.strip().removeprefix("v")
     parts = cleaned.split(".")
@@ -87,7 +96,7 @@ def _release_asset(value: object) -> Optional[ReleaseAsset]:
 
 
 def check_for_updates(
-    opener: Callable[..., object] = urlopen,
+    opener: Callable[..., object] = secure_urlopen,
     current_version: str = __version__,
 ) -> UpdateInfo:
     request = Request(
@@ -198,7 +207,7 @@ def _expected_checksum(checksum_file: Path, filename: str) -> str:
 def download_verified_update(
     info: UpdateInfo,
     staging_dir: Path,
-    opener: Callable[..., object] = urlopen,
+    opener: Callable[..., object] = secure_urlopen,
     progress: Optional[Callable[[int, int], None]] = None,
     system: Optional[str] = None,
     machine: Optional[str] = None,

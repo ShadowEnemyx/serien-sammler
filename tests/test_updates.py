@@ -1,8 +1,10 @@
 import json
+import ssl
 from hashlib import sha256
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
+from urllib.request import Request
 from zipfile import ZipFile
 
 import pytest
@@ -16,6 +18,7 @@ from series_collector.updates import (
     check_for_updates,
     download_verified_update,
     prepare_self_update,
+    secure_urlopen,
     update_asset_for_platform,
     update_check_due,
     version_tuple,
@@ -47,6 +50,22 @@ class DownloadResponse:
 
     def close(self) -> None:
         pass
+
+
+def test_secure_urlopen_uses_a_certificate_bundle(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(request: object, timeout: int, context: ssl.SSLContext) -> FakeResponse:
+        captured.update(request=request, timeout=timeout, context=context)
+        return FakeResponse({})
+
+    monkeypatch.setattr("series_collector.updates.urlopen", fake_urlopen)
+    request = Request("https://api.github.com")
+    response = secure_urlopen(request, timeout=5)
+
+    assert isinstance(captured["context"], ssl.SSLContext)
+    assert captured["timeout"] == 5
+    assert response.payload == {}
 
 
 def test_new_stable_release_is_detected() -> None:
