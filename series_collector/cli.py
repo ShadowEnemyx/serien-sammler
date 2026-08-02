@@ -74,7 +74,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--mode",
         choices=("copy", "move"),
         default="copy",
-        help="Copy files (default) or move them and remove completed source folders",
+        help="Copy files (default) or move them to the Trash after verification",
     )
     parser.add_argument("--remember-folders", action="store_true", help="Remember source and destination")
     parser.add_argument("--language", choices=("de", "en"), help="Interface language")

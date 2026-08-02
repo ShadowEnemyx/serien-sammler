@@ -65,7 +65,7 @@ $seriesName = [Microsoft.VisualBasic.Interaction]::InputBox(
 if ([string]::IsNullOrWhiteSpace($seriesName)) { exit }
 
 $modeChoice = [System.Windows.Forms.MessageBox]::Show(
-    "Ja = Kopieren (Originale behalten)`nNein = Ausschneiden (Originale nach erfolgreicher Prüfung löschen)",
+    "Ja = Kopieren (Originale behalten)`nNein = Ausschneiden (Originale nach erfolgreicher Prüfung in den Papierkorb verschieben)",
     "Aktion auswählen",
     [System.Windows.Forms.MessageBoxButtons]::YesNoCancel,
     [System.Windows.Forms.MessageBoxIcon]::Question
