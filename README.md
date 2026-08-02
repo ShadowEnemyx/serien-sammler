@@ -31,6 +31,7 @@ Builds are signed automatically when the repository owner has configured signing
 - Different files with the same name are kept as ` (2)`, ` (3)`, and so on
 - Verified temporary copies, progress display, and safe cancellation between files
 - Optional daily update notification plus manual update check
+- Updates can be downloaded directly in the app, verified with the GitHub checksum, and installed after confirmation
 - Local rotating logs and an exportable diagnostic report; no telemetry
 - Supports `.avi`, `.mkv`, `.mp4`, `.srt`, `.ass`, `.ssa`, `.vtt`, and `.sub`
 
@@ -58,7 +59,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-PyInstaller and Pillow are pinned in `requirements-build.txt`. Tags such as `v1.4.0` test and build Windows x64, macOS Apple Silicon, and macOS Intel artifacts, exercise the installer/DMGs, create SHA-256 checksums, and publish a release.
+PyInstaller and Pillow are pinned in `requirements-build.txt`. Tags such as `v1.5.0` test and build Windows x64, macOS Apple Silicon, and macOS Intel artifacts, exercise the installer/DMGs, create SHA-256 checksums, and publish a release.
 
 Optional GitHub Actions secrets enable official signing:
 

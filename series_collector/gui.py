@@ -30,7 +30,15 @@ from series_collector.core import (
 )
 from series_collector.i18n import translate
 from series_collector.logging_utils import configure_logging, save_diagnostic_report
-from series_collector.updates import UpdateInfo, check_for_updates, update_check_due
+from series_collector.updates import (
+    PreparedUpdate,
+    UpdateInfo,
+    check_for_updates,
+    discard_prepared_update,
+    prepare_self_update,
+    start_prepared_update,
+    update_check_due,
+)
 
 
 LANGUAGE_LABELS = {"de": "Deutsch", "en": "English"}
@@ -65,6 +73,7 @@ class SeriesCollectorApp(tk.Tk):
         self.copying = False
         self.close_when_done = False
         self.update_check_running = False
+        self.update_install_running = False
         self._icon: Optional[tk.PhotoImage] = None
 
         self.geometry("1080x700")
@@ -495,7 +504,7 @@ class SeriesCollectorApp(tk.Tk):
             logger.exception("Could not save settings")
 
     def _start_update_check(self, manual: bool) -> None:
-        if self.update_check_running:
+        if self.copying or self.update_check_running or self.update_install_running:
             return
         self.update_check_running = True
         self.update_button.configure(state="disabled")
@@ -523,11 +532,64 @@ class SeriesCollectorApp(tk.Tk):
                 self._t("update_available", current=info.current_version, latest=info.latest_version),
                 parent=self,
             ):
-                webbrowser.open(info.release_url)
+                self._start_update_install(info)
         elif manual:
             messagebox.showinfo(self._t("updates"), self._t("up_to_date", version=__version__), parent=self)
-        if manual:
+        if manual and not self.update_install_running:
             self.status_text.set(self._t("status_ready"))
+
+    def _start_update_install(self, info: UpdateInfo) -> None:
+        self.update_install_running = True
+        self.update_button.configure(state="disabled")
+        self.status_text.set(self._t("downloading_update", version=info.latest_version, percent=0))
+        threading.Thread(target=self._update_install_worker, args=(info,), daemon=True).start()
+
+    def _update_install_worker(self, info: UpdateInfo) -> None:
+        try:
+            prepared = prepare_self_update(
+                info,
+                progress=lambda received, total: self.events.put(
+                    ("update_download_progress", (info.latest_version, received, total))
+                ),
+            )
+            self.events.put(("update_ready", (info, prepared)))
+        except Exception as error:
+            logger.warning("Update download or preparation failed: %s", error)
+            self.events.put(("update_install_error", (info, error)))
+
+    def _handle_update_progress(self, version: str, received: int, total: int) -> None:
+        percent = int(received * 100 / total) if total else 0
+        self.status_text.set(self._t("downloading_update", version=version, percent=percent))
+
+    def _handle_update_ready(self, info: UpdateInfo, prepared: PreparedUpdate) -> None:
+        self.update_install_running = False
+        self.update_button.configure(state="normal")
+        if not messagebox.askyesno(
+            self._t("update_ready_title"),
+            self._t("update_ready", version=info.latest_version),
+            parent=self,
+        ):
+            discard_prepared_update(prepared)
+            self.status_text.set(self._t("status_ready"))
+            return
+        try:
+            start_prepared_update(prepared)
+        except OSError as error:
+            discard_prepared_update(prepared)
+            self._handle_update_install_error(info, error)
+            return
+        self.destroy()
+
+    def _handle_update_install_error(self, info: UpdateInfo, error: object) -> None:
+        self.update_install_running = False
+        self.update_button.configure(state="normal")
+        if messagebox.askyesno(
+            self._t("update_install_failed_title"),
+            self._t("update_install_failed", error=error),
+            parent=self,
+        ):
+            webbrowser.open(info.release_url)
+        self.status_text.set(self._t("status_ready"))
 
     def _save_diagnostics(self) -> None:
         filename = filedialog.asksaveasfilename(
@@ -577,6 +639,15 @@ class SeriesCollectorApp(tk.Tk):
                             self._t("updates"), self._t("update_failed", error=error), parent=self
                         )
                         self.status_text.set(self._t("status_ready"))
+                elif event == "update_download_progress":
+                    version, received, total = value
+                    self._handle_update_progress(version, received, total)
+                elif event == "update_ready":
+                    info, prepared = value
+                    self._handle_update_ready(info, prepared)
+                elif event == "update_install_error":
+                    info, error = value
+                    self._handle_update_install_error(info, error)
         except queue.Empty:
             pass
         self.after(100, self._process_events)
