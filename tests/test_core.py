@@ -150,9 +150,47 @@ def test_move_mode_removes_source_only_after_verified_copy(tmp_path: Path) -> No
 
     assert summary.copied == 1
     assert summary.source_removed == 1
+    assert summary.source_folders_removed == 0
     assert summary.failed == 0
     assert not episode.exists()
+    assert source.is_dir()
     assert (destination / "Show" / "S01" / episode.name).read_bytes() == b"episode"
+
+
+def test_move_mode_removes_completed_parent_folder_and_its_leftovers(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    release_folder = source / "Show.S01.COMPLETE"
+    create_file(release_folder / "Show.S01E01.mkv", b"one")
+    create_file(release_folder / "Show.S01E02.mkv", b"two")
+    create_file(release_folder / "release-notes.txt", b"leftover")
+
+    summary = copy_series(scan_series("Show", source, destination, "move"))
+
+    assert summary.source_removed == 2
+    assert summary.source_folders_removed == 1
+    assert not release_folder.exists()
+    assert source.is_dir()
+    assert visible_files(destination / "Show") == [
+        "S01/Show.S01E01.mkv",
+        "S01/Show.S01E02.mkv",
+    ]
+
+
+def test_move_mode_keeps_parent_folder_when_an_unselected_match_remains(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    release_folder = source / "release"
+    selected = create_file(release_folder / "Show.S01E01.mkv", b"selected")
+    ambiguous = create_file(release_folder / "ShowUS.S01E02.mkv", b"ambiguous")
+    create_file(release_folder / "release-notes.txt", b"leftover")
+
+    summary = copy_series(scan_series("Show", source, destination, "move"))
+
+    assert not selected.exists()
+    assert ambiguous.is_file()
+    assert release_folder.is_dir()
+    assert summary.source_folders_removed == 0
 
 
 def test_move_mode_removes_source_when_identical_destination_exists(tmp_path: Path) -> None:

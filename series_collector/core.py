@@ -152,6 +152,7 @@ class CopyProgress:
     copied: int
     moved: int
     source_removed: int
+    source_folders_removed: int
     skipped: int
     failed: int
     error: str = ""
@@ -165,6 +166,7 @@ class CopySummary:
     copied: int
     moved: int
     source_removed: int
+    source_folders_removed: int
     skipped: int
     failed: int
     cancelled: bool
@@ -531,6 +533,29 @@ def _record_manifest_file(
         sources[str(signature["source"])] = {"modified": signature["modified"]}
 
 
+def _remove_completed_source_folder(scan: ScanResult, item: ScanItem) -> bool:
+    """Remove one source-file parent after every scanned file in it is gone.
+
+    The configured source root is never removed. This deliberately also removes
+    non-media leftovers in a completed release folder, as requested by the user.
+    """
+    folder = item.source.parent
+    try:
+        source_root = scan.source.resolve()
+        folder.resolve().relative_to(source_root)
+    except (OSError, ValueError):
+        return False
+    if folder.resolve() == source_root:
+        return False
+
+    if any(candidate.source.exists() for candidate in scan.items if candidate.source.parent == folder):
+        return False
+
+    logger.info("Removing completed source folder %s", folder)
+    shutil.rmtree(folder)
+    return True
+
+
 def copy_series(
     scan: ScanResult,
     progress_callback: Optional[Callable[[CopyProgress], None]] = None,
@@ -542,7 +567,7 @@ def copy_series(
     manifest["schema_version"] = MANIFEST_VERSION
     target_index = _target_index(scan.target)
     selected_items = tuple(item for item in scan.items if item.selected)
-    copied = moved = source_removed = skipped = failed = processed = 0
+    copied = moved = source_removed = source_folders_removed = skipped = failed = processed = 0
     cancelled = False
     errors: list[str] = []
 
@@ -600,6 +625,9 @@ def copy_series(
                 item.source.unlink()
                 source_removed += 1
                 action = "source_removed"
+                if _remove_completed_source_folder(scan, item):
+                    source_folders_removed += 1
+                    action = "source_folder_removed"
         except OSError as error:
             failed += 1
             action = "failed"
@@ -623,6 +651,7 @@ def copy_series(
                     copied=copied,
                     moved=moved,
                     source_removed=source_removed,
+                    source_folders_removed=source_folders_removed,
                     skipped=skipped,
                     failed=failed,
                     error=error_text,
@@ -636,6 +665,7 @@ def copy_series(
         copied=copied,
         moved=moved,
         source_removed=source_removed,
+        source_folders_removed=source_folders_removed,
         skipped=skipped,
         failed=failed,
         cancelled=cancelled,

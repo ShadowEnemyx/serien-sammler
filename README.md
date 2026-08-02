@@ -26,7 +26,7 @@ Builds are signed automatically when the repository owner has configured signing
 - Previously collected episodes in the series root are safely sorted into their detected season on the next run
 - Files containing `sample` anywhere in their filename are always ignored, regardless of letter case
 - Selectable preview with source path and planned copy, skip, or rename action
-- Choice between **Copy** (the default) and **Move**; move deletes each original only after its destination copy has been created and content-verified successfully
+- Choice between **Copy** (the default) and **Move**; move deletes each original only after its destination copy has been created and content-verified successfully. It then removes a completed source folder together with its remaining files; the configured source root is protected.
 - Content fingerprints prevent duplicate copies even when source paths or filenames differ
 - Different files with the same name are kept as ` (2)`, ` (3)`, and so on
 - Verified temporary copies, progress display, and safe cancellation between files
@@ -49,7 +49,7 @@ python3 serien_sammler.py \
   --preview
 ```
 
-Remove `--preview` to copy. Add `--mode move` to move files safely instead; verified originals are then deleted from the source folder. Optional switches include `--remember-folders`, `--include-ambiguous`, `--check-updates`, and `--log-file /path/to/log.txt`. The `.command`, `.bat`, and PowerShell launchers remain source-code fallbacks.
+Remove `--preview` to copy. Add `--mode move` to move files safely instead; verified originals are deleted and completed source folders including their remaining files are removed. The configured source root is never deleted. Optional switches include `--remember-folders`, `--include-ambiguous`, `--check-updates`, and `--log-file /path/to/log.txt`. The `.command`, `.bat`, and PowerShell launchers remain source-code fallbacks.
 
 ## Development and releases
 
@@ -58,7 +58,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-PyInstaller and Pillow are pinned in `requirements-build.txt`. Tags such as `v1.3.2` test and build Windows x64, macOS Apple Silicon, and macOS Intel artifacts, exercise the installer/DMGs, create SHA-256 checksums, and publish a release.
+PyInstaller and Pillow are pinned in `requirements-build.txt`. Tags such as `v1.4.0` test and build Windows x64, macOS Apple Silicon, and macOS Intel artifacts, exercise the installer/DMGs, create SHA-256 checksums, and publish a release.
 
 Optional GitHub Actions secrets enable official signing:
 
