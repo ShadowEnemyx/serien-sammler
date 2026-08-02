@@ -447,6 +447,7 @@ class SeriesCollectorApp(tk.Tk):
                 copied=summary.copied,
                 moved=summary.moved,
                 removed=summary.source_removed,
+                folders=summary.source_folders_removed,
                 skipped=summary.skipped,
             )
         else:
@@ -455,6 +456,7 @@ class SeriesCollectorApp(tk.Tk):
                 copied=summary.copied,
                 moved=summary.moved,
                 removed=summary.source_removed,
+                folders=summary.source_folders_removed,
                 skipped=summary.skipped,
                 failed=summary.failed,
             )

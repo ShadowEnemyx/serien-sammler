@@ -49,6 +49,7 @@ def _progress_printer(language: str, progress: CopyProgress) -> None:
         "copied": "cli_copy",
         "moved": "cli_move",
         "source_removed": "cli_source_removed",
+        "source_folder_removed": "cli_source_folder_removed",
         "skipped": "cli_skip",
         "failed": "cli_fail",
     }[progress.action]
@@ -73,7 +74,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--mode",
         choices=("copy", "move"),
         default="copy",
-        help="Copy files (default) or move them by deleting verified originals",
+        help="Copy files (default) or move them and remove completed source folders",
     )
     parser.add_argument("--remember-folders", action="store_true", help="Remember source and destination")
     parser.add_argument("--language", choices=("de", "en"), help="Interface language")
@@ -159,6 +160,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             copied=summary.copied,
             moved=summary.moved,
             removed=summary.source_removed,
+            folders=summary.source_folders_removed,
             skipped=summary.skipped,
             failed=summary.failed,
         )
