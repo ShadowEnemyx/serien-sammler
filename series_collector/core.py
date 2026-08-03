@@ -21,7 +21,7 @@ from series_collector.trash import move_to_trash
 
 
 VIDEO_EXTENSIONS = {".avi", ".mkv", ".mp4"}
-SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".vtt", ".sub"}
+SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".vtt"}
 SUPPORTED_EXTENSIONS = VIDEO_EXTENSIONS | SUBTITLE_EXTENSIONS
 OPERATIONS = {"copy", "move"}
 MANIFEST_NAME = ".serien-sammler-manifest.json"
