@@ -82,6 +82,7 @@ def test_scan_finds_videos_and_subtitles(tmp_path: Path) -> None:
     create_file(source / "nested" / "Ghost.Whisperer.S01E01.mkv")
     create_file(source / "nested" / "GhostWhispererS01E01.srt")
     create_file(source / "nested" / "Ghost-Whisperer-S01E02.ass")
+    create_file(source / "nested" / "Ghost-Whisperer-S01E03.sub")
     create_file(source / "nested" / "Other.Show.S01E01.mp4")
     create_file(source / "nested" / "._Ghost.Whisperer.S01E01.mkv")
     create_file(source / "nested" / "Ghost.Whisperer.S01E01.sample.mkv")
