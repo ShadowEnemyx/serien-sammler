@@ -535,20 +535,27 @@ def _record_manifest_file(
         sources[str(signature["source"])] = {"modified": signature["modified"]}
 
 
+def _source_container(scan: ScanResult, item: ScanItem) -> Optional[Path]:
+    """Return the top-level release folder for an item, never the source root."""
+    try:
+        source_root = scan.source.resolve()
+        relative_path = item.source.resolve().relative_to(source_root)
+    except (OSError, ValueError):
+        return None
+    if len(relative_path.parts) < 2:
+        return None
+    return source_root / relative_path.parts[0]
+
+
 def _completed_source_folder(
     scan: ScanResult, item: ScanItem, completed_sources: set[Path]
 ) -> Optional[tuple[Path, tuple[ScanItem, ...]]]:
-    """Return a source folder only when every recognised item in it is complete."""
-    folder = item.source.parent
-    try:
-        source_root = scan.source.resolve()
-        folder.resolve().relative_to(source_root)
-    except (OSError, ValueError):
-        return None
-    if folder.resolve() == source_root:
+    """Return one release folder only after every recognised nested item is complete."""
+    folder = _source_container(scan, item)
+    if folder is None:
         return None
 
-    members = tuple(candidate for candidate in scan.items if candidate.source.parent == folder)
+    members = tuple(candidate for candidate in scan.items if _source_container(scan, candidate) == folder)
     if not members or not all(candidate.selected and candidate.source in completed_sources for candidate in members):
         return None
     return folder, members
@@ -631,8 +638,9 @@ def copy_series(
                     source_removed += len(members)
                     source_folders_removed += 1
                     action = "source_folder_removed"
-                elif item.source.parent.resolve() == scan.source.resolve() or any(
-                    candidate.source.parent == item.source.parent and not candidate.selected for candidate in scan.items
+                elif _source_container(scan, item) is None or any(
+                    _source_container(scan, candidate) == _source_container(scan, item) and not candidate.selected
+                    for candidate in scan.items
                 ):
                     logger.info("Moving verified source file to Trash: %s", item.source)
                     trash(item.source)
