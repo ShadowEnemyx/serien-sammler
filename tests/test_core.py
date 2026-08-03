@@ -200,6 +200,34 @@ def test_move_mode_moves_completed_parent_folder_and_leftovers_to_trash(
     ]
 
 
+def test_move_mode_waits_for_nested_subtitles_before_trashing_release_folder(
+    tmp_path: Path, fake_system_trash: Path
+) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    release_folder = source / "Avatar.Der.Herr.der.Elemente.S01"
+    create_file(release_folder / "Avatar.Der.Herr.der.Elemente.S01E01.mkv", b"episode")
+    create_file(release_folder / "Avatar.Der.Herr.der.Elemente.S01E02.mkv", b"episode two")
+    create_file(release_folder / "Forced-Subs" / "Avatar.Der.Herr.der.Elemente.S01E01-forced.srt", b"subtitle")
+    create_file(release_folder / "Forced-Subs" / "Avatar.Der.Herr.der.Elemente.S01E02-forced.srt", b"subtitle two")
+
+    summary = copy_series(scan_series("Avatar Der Herr der Elemente", source, destination, "move"))
+
+    assert summary.failed == 0
+    assert summary.source_removed == 4
+    assert summary.source_folders_removed == 1
+    assert not release_folder.exists()
+    assert (
+        fake_system_trash / release_folder.name / "Forced-Subs" / "Avatar.Der.Herr.der.Elemente.S01E01-forced.srt"
+    ).read_bytes() == b"subtitle"
+    assert visible_files(destination / "Avatar Der Herr der Elemente") == [
+        "S01/Avatar.Der.Herr.der.Elemente.S01E01-forced.srt",
+        "S01/Avatar.Der.Herr.der.Elemente.S01E01.mkv",
+        "S01/Avatar.Der.Herr.der.Elemente.S01E02-forced.srt",
+        "S01/Avatar.Der.Herr.der.Elemente.S01E02.mkv",
+    ]
+
+
 def test_move_mode_moves_only_selected_file_to_trash_when_unselected_match_remains(
     tmp_path: Path, fake_system_trash: Path
 ) -> None:
