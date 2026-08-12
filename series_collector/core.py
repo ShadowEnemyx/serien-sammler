@@ -145,6 +145,19 @@ class ScanResult:
             ),
         )
 
+    def with_all_selectable_items_selected(self) -> "ScanResult":
+        """Explicitly select every item that can be processed in this mode.
+
+        Ambiguous matches deliberately remain unselected in a new preview, but
+        the person using the app may explicitly select them after checking the
+        list. Items already present in copy mode still have no action to run.
+        """
+        return self.with_selection(
+            item.source
+            for item in self.items
+            if item.requires_change or self.operation == "move"
+        )
+
     def with_operation(self, operation: str) -> "ScanResult":
         """Change copy/move mode without losing the current scan preview."""
         if operation not in OPERATIONS:

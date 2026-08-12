@@ -26,7 +26,7 @@ Builds werden automatisch signiert, sobald der Repository-Besitzer Signierungsze
 - Bereits gesammelte Folgen im Serien-Hauptordner werden beim nächsten Lauf sicher in die erkannte Staffel einsortiert
 - Dateien mit `sample` an beliebiger Stelle im Dateinamen werden unabhängig von Groß-/Kleinschreibung immer ignoriert
 - System-Papierkörbe werden niemals durchsucht
-- Auswählbare Vorschau mit Quellpfad und geplanter Aktion: kopieren, überspringen oder umbenennen
+- Auswählbare Vorschau mit Quellpfad und geplanter Aktion: kopieren, überspringen oder umbenennen; eine Checkbox kann bewusst alle Treffer inklusive mehrdeutiger Treffer auswählen
 - Auswahl zwischen **Kopieren** (Standard) und **Ausschneiden**; beim Ausschneiden wird jedes Original erst nach erfolgreicher Kopie und Inhaltsprüfung in den Papierkorb verschoben. Sobald alle erkannten Serien-Dateien eines Quellordners verarbeitet sind, landet der gesamte Ordner einschließlich übriger Dateien wie Notizen im Papierkorb. Der eingestellte Such-Hauptordner bleibt geschützt.
 - Inhaltsfingerabdrücke verhindern Dubletten auch bei anderem Quellpfad oder Dateinamen
 - Verschiedene Dateien mit gleichem Namen bleiben als ` (2)`, ` (3)` usw. erhalten
@@ -60,7 +60,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-PyInstaller, Pillow und Certifi sind in `requirements-build.txt` fest angeheftet. Tags wie `v1.6.6` testen und bauen Windows x64, macOS Apple Silicon und macOS Intel, prüfen Installer und DMGs, erzeugen SHA-256-Prüfsummen und veröffentlichen das Release.
+PyInstaller, Pillow und Certifi sind in `requirements-build.txt` fest angeheftet. Tags wie `v1.6.7` testen und bauen Windows x64, macOS Apple Silicon und macOS Intel, prüfen Installer und DMGs, erzeugen SHA-256-Prüfsummen und veröffentlichen das Release.
 
 Optionale GitHub-Actions-Secrets aktivieren die offizielle Signierung:
 
