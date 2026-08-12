@@ -425,6 +425,33 @@ def test_ambiguous_matches_are_visible_but_not_selected(tmp_path: Path) -> None:
     assert {item.match_quality for item in scan.items} == {"exact", "ambiguous"}
 
 
+def test_switching_preview_to_move_selects_existing_files_without_a_new_search(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    episode = create_file(source / "Show.S01E01.mkv", b"episode")
+    create_file(destination / "Show" / "S01" / episode.name, b"episode")
+
+    copy_preview = scan_series("Show", source, destination)
+    move_preview = copy_preview.with_operation("move")
+
+    assert copy_preview.operation == "copy"
+    assert not copy_preview.items[0].selected
+    assert move_preview.operation == "move"
+    assert move_preview.items[0].selected
+    assert not move_preview.with_operation("copy").items[0].selected
+
+
+def test_switching_preview_mode_keeps_ambiguous_files_unselected(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    create_file(source / "TheOfficeUS.S01E01.mkv", b"ambiguous")
+
+    move_preview = scan_series("The Office", source, destination).with_operation("move")
+
+    assert move_preview.operation == "move"
+    assert not move_preview.items[0].selected
+
+
 def test_identical_content_from_different_sources_is_copied_once(tmp_path: Path) -> None:
     source = tmp_path / "source"
     destination = tmp_path / "destination"

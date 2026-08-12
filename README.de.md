@@ -60,7 +60,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-PyInstaller, Pillow und Certifi sind in `requirements-build.txt` fest angeheftet. Tags wie `v1.6.5` testen und bauen Windows x64, macOS Apple Silicon und macOS Intel, prüfen Installer und DMGs, erzeugen SHA-256-Prüfsummen und veröffentlichen das Release.
+PyInstaller, Pillow und Certifi sind in `requirements-build.txt` fest angeheftet. Tags wie `v1.6.6` testen und bauen Windows x64, macOS Apple Silicon und macOS Intel, prüfen Installer und DMGs, erzeugen SHA-256-Prüfsummen und veröffentlichen das Release.
 
 Optionale GitHub-Actions-Secrets aktivieren die offizielle Signierung:
 

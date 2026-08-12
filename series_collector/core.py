@@ -145,6 +145,17 @@ class ScanResult:
             ),
         )
 
+    def with_operation(self, operation: str) -> "ScanResult":
+        """Change copy/move mode without losing the current scan preview."""
+        if operation not in OPERATIONS:
+            raise CollectorError("invalid_operation", operation=operation)
+        eligible_sources = (
+            item.source
+            for item in self.items
+            if item.match_quality != "ambiguous" and (operation == "move" or item.requires_change)
+        )
+        return replace(self, operation=operation).with_selection(eligible_sources)
+
 
 @dataclass(frozen=True)
 class CopyProgress:
