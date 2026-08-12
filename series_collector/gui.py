@@ -172,13 +172,13 @@ class SeriesCollectorApp(tk.Tk):
         preview_frame = ttk.Frame(outer)
         preview_frame.grid(row=8, column=0, columnspan=3, sticky="nsew")
         preview_frame.columnconfigure(0, weight=1)
-        preview_frame.rowconfigure(1, weight=1)
+        preview_frame.rowconfigure(2, weight=1)
         self.summary_label = ttk.Label(preview_frame, textvariable=self.summary_text, style="Summary.TLabel")
         self.summary_label.grid(row=0, column=0, sticky="w", pady=(0, 5))
         self.select_all_checkbox = ttk.Checkbutton(
             preview_frame, variable=self.select_all, command=self._toggle_all_selected, state="disabled"
         )
-        self.select_all_checkbox.grid(row=0, column=1, sticky="e", pady=(0, 5))
+        self.select_all_checkbox.grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 5))
 
         columns = ("selected", "action", "season", "quality", "type", "file", "path")
         self.tree = ttk.Treeview(preview_frame, columns=columns, show="headings", selectmode="browse")
@@ -189,11 +189,11 @@ class SeriesCollectorApp(tk.Tk):
         self.tree.column("type", width=85, stretch=False)
         self.tree.column("file", width=260, stretch=True)
         self.tree.column("path", width=360, stretch=True)
-        self.tree.grid(row=1, column=0, sticky="nsew")
+        self.tree.grid(row=2, column=0, sticky="nsew")
         self.tree.bind("<Double-1>", self._toggle_selected)
         self.tree.bind("<space>", self._toggle_selected)
         scrollbar = ttk.Scrollbar(preview_frame, orient="vertical", command=self.tree.yview)
-        scrollbar.grid(row=1, column=1, sticky="ns")
+        scrollbar.grid(row=2, column=1, sticky="ns")
         self.tree.configure(yscrollcommand=scrollbar.set)
 
         self.progress = ttk.Progressbar(outer, mode="determinate")
