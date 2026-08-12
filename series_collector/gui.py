@@ -154,11 +154,11 @@ class SeriesCollectorApp(tk.Tk):
         self.operation_label = ttk.Label(mode_row)
         self.operation_label.grid(row=0, column=0, padx=(0, 8))
         self.copy_mode_button = ttk.Radiobutton(
-            mode_row, variable=self.operation, value="copy", command=self._inputs_changed
+            mode_row, variable=self.operation, value="copy", command=self._change_operation
         )
         self.copy_mode_button.grid(row=0, column=1, padx=(0, 12))
         self.move_mode_button = ttk.Radiobutton(
-            mode_row, variable=self.operation, value="move", command=self._inputs_changed
+            mode_row, variable=self.operation, value="move", command=self._change_operation
         )
         self.move_mode_button.grid(row=0, column=2)
         self.preview_button = ttk.Button(actions, command=self._start_preview)
@@ -268,6 +268,13 @@ class SeriesCollectorApp(tk.Tk):
         self.summary_text.set("")
         for item in self.tree.get_children():
             self.tree.delete(item)
+
+    def _change_operation(self) -> None:
+        """Apply a new mode to the preview instead of making the user search again."""
+        if self.copying or self.current_scan is None:
+            return
+        self.current_scan = self.current_scan.with_operation(self.operation.get())
+        self._show_scan(self.current_scan)
 
     def _choose_source(self) -> None:
         path = filedialog.askdirectory(title=self._t("choose_source"), initialdir=self.source.get() or None)
