@@ -96,6 +96,20 @@ def test_scan_finds_videos_and_subtitles(tmp_path: Path) -> None:
     assert scan.existing_count == 0
 
 
+def test_scan_ignores_macos_and_windows_trash_folders(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    kept = create_file(source / "downloads" / "Show.S01E01.mkv", b"kept")
+    create_file(source / ".Trashes" / "501" / "Show.S01E02.mkv", b"mac trash")
+    create_file(source / "$RECYCLE.BIN" / "S-1-5-21" / "Show.S01E03.mkv", b"windows trash")
+    create_file(source / ".Trash-501" / "Show.S01E04.mkv", b"linux trash")
+    create_file(source / ".local" / "share" / "Trash" / "files" / "Show.S01E05.mkv", b"linux desktop trash")
+
+    scan = scan_series("Show", source, destination)
+
+    assert [item.source for item in scan.items] == [kept]
+
+
 def test_scan_finds_all_episodes_when_series_name_is_only_in_folder(
     tmp_path: Path,
 ) -> None:

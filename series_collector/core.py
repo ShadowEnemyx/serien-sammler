@@ -24,6 +24,7 @@ VIDEO_EXTENSIONS = {".avi", ".mkv", ".mp4"}
 SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".vtt"}
 SUPPORTED_EXTENSIONS = VIDEO_EXTENSIONS | SUBTITLE_EXTENSIONS
 OPERATIONS = {"copy", "move"}
+TRASH_FOLDER_NAMES = {".trash", ".trashes", "$recycle.bin"}
 MANIFEST_NAME = ".serien-sammler-manifest.json"
 MANIFEST_VERSION = 2
 CONFIG_PATH = Path.home() / ".serien-sammler-config.json"
@@ -385,16 +386,34 @@ def classify_path_match(path: Path, keyword: str, source: Path) -> Optional[str]
     return None
 
 
+def _is_trash_folder(folder: Path) -> bool:
+    name = folder.name.casefold()
+    if name in TRASH_FOLDER_NAMES or name.startswith(".trash-"):
+        return True
+    return tuple(part.casefold() for part in folder.parts[-3:]) == (".local", "share", "trash")
+
+
 def matching_files(source: Path, keyword: str) -> list[Path]:
-    return sorted(
-        path
-        for path in source.rglob("*")
-        if path.is_file()
-        and not path.name.startswith("._")
-        and "sample" not in path.name.casefold()
-        and path.suffix.casefold() in SUPPORTED_EXTENSIONS
-        and classify_path_match(path, keyword, source) is not None
-    )
+    """Find matching media files while never descending into system Trash folders."""
+    if any(_is_trash_folder(folder) for folder in (source, *source.parents)):
+        return []
+
+    matches: list[Path] = []
+    for directory, folders, files in os.walk(source, topdown=True, followlinks=False):
+        current = Path(directory)
+        folders[:] = sorted(folder for folder in folders if not _is_trash_folder(current / folder))
+        for filename in sorted(files):
+            path = current / filename
+            if (
+                not path.is_file()
+                or path.name.startswith("._")
+                or "sample" in path.name.casefold()
+                or path.suffix.casefold() not in SUPPORTED_EXTENSIONS
+                or classify_path_match(path, keyword, source) is None
+            ):
+                continue
+            matches.append(path)
+    return matches
 
 
 def target_is_inside_source(source: Path, target: Path) -> bool:
