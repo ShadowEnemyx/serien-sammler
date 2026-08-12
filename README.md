@@ -26,7 +26,7 @@ Builds are signed automatically when the repository owner has configured signing
 - Previously collected episodes in the series root are safely sorted into their detected season on the next run
 - Files containing `sample` anywhere in their filename are always ignored, regardless of letter case
 - System Trash / Recycle Bin folders are never searched
-- Selectable preview with source path and planned copy, skip, or rename action
+- Selectable preview with source path and planned copy, skip, or rename action; one checkbox can deliberately select all matches, including ambiguous ones
 - Choice between **Copy** (the default) and **Move**; move sends originals to the system Trash only after a destination copy has been created and content-verified successfully. When every recognised series file in a source folder is complete, the whole folder—including remaining files such as notes—is sent to the Trash. The configured source root is protected.
 - Content fingerprints prevent duplicate copies even when source paths or filenames differ
 - Different files with the same name are kept as ` (2)`, ` (3)`, and so on
@@ -60,7 +60,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-PyInstaller, Pillow, and Certifi are pinned in `requirements-build.txt`. Tags such as `v1.6.6` test and build Windows x64, macOS Apple Silicon, and macOS Intel artifacts, exercise the installer/DMGs, create SHA-256 checksums, and publish a release.
+PyInstaller, Pillow, and Certifi are pinned in `requirements-build.txt`. Tags such as `v1.6.7` test and build Windows x64, macOS Apple Silicon, and macOS Intel artifacts, exercise the installer/DMGs, create SHA-256 checksums, and publish a release.
 
 Optional GitHub Actions secrets enable official signing:
 

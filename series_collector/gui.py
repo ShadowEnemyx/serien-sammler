@@ -62,6 +62,7 @@ class SeriesCollectorApp(tk.Tk):
         self.operation = tk.StringVar(value="copy")
         self.language_label = tk.StringVar(value=LANGUAGE_LABELS[self.language])
         self.check_updates = tk.BooleanVar(value=bool(config.get("check_updates", True)))
+        self.select_all = tk.BooleanVar(value=False)
         self.summary_text = tk.StringVar()
         self.status_text = tk.StringVar()
         self.counter_text = tk.StringVar()
@@ -174,6 +175,10 @@ class SeriesCollectorApp(tk.Tk):
         preview_frame.rowconfigure(1, weight=1)
         self.summary_label = ttk.Label(preview_frame, textvariable=self.summary_text, style="Summary.TLabel")
         self.summary_label.grid(row=0, column=0, sticky="w", pady=(0, 5))
+        self.select_all_checkbox = ttk.Checkbutton(
+            preview_frame, variable=self.select_all, command=self._toggle_all_selected, state="disabled"
+        )
+        self.select_all_checkbox.grid(row=0, column=1, sticky="e", pady=(0, 5))
 
         columns = ("selected", "action", "season", "quality", "type", "file", "path")
         self.tree = ttk.Treeview(preview_frame, columns=columns, show="headings", selectmode="browse")
@@ -233,6 +238,7 @@ class SeriesCollectorApp(tk.Tk):
         self.preview_button.configure(text=self._t("preview"))
         self.copy_button.configure(text=self._t("copy"))
         self.cancel_button.configure(text=self._t("cancel"))
+        self.select_all_checkbox.configure(text=self._t("select_all"))
         for column in ("selected", "action", "season", "quality", "type", "file", "path"):
             self.tree.heading(column, text=self._t(f"column_{column}"))
         self.update_checkbox.configure(text=self._t("check_updates_startup"))
@@ -264,6 +270,8 @@ class SeriesCollectorApp(tk.Tk):
             return
         self.current_scan = None
         self.selected_sources.clear()
+        self.select_all.set(False)
+        self.select_all_checkbox.configure(state="disabled")
         self.copy_button.configure(state="disabled")
         self.summary_text.set("")
         for item in self.tree.get_children():
@@ -275,6 +283,35 @@ class SeriesCollectorApp(tk.Tk):
             return
         self.current_scan = self.current_scan.with_operation(self.operation.get())
         self._show_scan(self.current_scan)
+
+    def _item_is_selectable(self, item: ScanItem) -> bool:
+        return bool(item.requires_change or (self.current_scan and self.current_scan.operation == "move"))
+
+    def _sync_select_all_checkbox(self) -> None:
+        selectable = [item for item in self.row_items.values() if self._item_is_selectable(item)]
+        self.select_all.set(bool(selectable) and all(str(item.source) in self.selected_sources for item in selectable))
+
+    def _store_selection(self) -> None:
+        if self.current_scan:
+            self.current_scan = self.current_scan.with_selection(Path(path) for path in self.selected_sources)
+
+    def _toggle_all_selected(self) -> None:
+        """Let users deliberately select all preview rows, including ambiguous matches."""
+        if self.copying or not self.current_scan:
+            self.select_all.set(False)
+            return
+        selectable = [item for item in self.current_scan.items if self._item_is_selectable(item)]
+        if self.select_all.get():
+            self.current_scan = self.current_scan.with_all_selectable_items_selected()
+            self.selected_sources = {str(item.source) for item in self.current_scan.items if item.selected}
+        else:
+            self.selected_sources.difference_update(str(item.source) for item in selectable)
+            self._store_selection()
+        for row, item in self.row_items.items():
+            values = list(self.tree.item(row, "values"))
+            values[0] = "✓" if str(item.source) in self.selected_sources else "—"
+            self.tree.item(row, values=values)
+        self._refresh_copy_button()
 
     def _choose_source(self) -> None:
         path = filedialog.askdirectory(title=self._t("choose_source"), initialdir=self.source.get() or None)
@@ -301,6 +338,10 @@ class SeriesCollectorApp(tk.Tk):
             self.move_mode_button,
         ):
             widget.configure(state=state)
+        selectable = self.current_scan and any(
+            self._item_is_selectable(item) for item in self.current_scan.items
+        )
+        self.select_all_checkbox.configure(state="disabled" if busy or not selectable else "normal")
         self.language_box.configure(state="disabled" if busy else "readonly")
 
     def _start_preview(self) -> None:
@@ -366,6 +407,10 @@ class SeriesCollectorApp(tk.Tk):
                 ),
             )
             self.row_items[row] = item
+        self._sync_select_all_checkbox()
+        self.select_all_checkbox.configure(
+            state="normal" if any(self._item_is_selectable(item) for item in scan.items) and not self.copying else "disabled"
+        )
         self._refresh_copy_button()
 
     def _toggle_selected(self, event: object = None) -> None:
@@ -376,10 +421,7 @@ class SeriesCollectorApp(tk.Tk):
             selection = self.tree.selection()
             row = selection[0] if selection else ""
         item = self.row_items.get(row)
-        if not item or not (
-            item.requires_change
-            or (self.current_scan and self.current_scan.operation == "move")
-        ):
+        if not item or not self._item_is_selectable(item):
             return
         source = str(item.source)
         if source in self.selected_sources:
@@ -391,6 +433,8 @@ class SeriesCollectorApp(tk.Tk):
         values = list(self.tree.item(row, "values"))
         values[0] = selected_label
         self.tree.item(row, values=values)
+        self._store_selection()
+        self._sync_select_all_checkbox()
         self._refresh_copy_button()
 
     def _refresh_copy_button(self) -> None:

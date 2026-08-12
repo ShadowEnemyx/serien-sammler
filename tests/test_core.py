@@ -452,6 +452,20 @@ def test_switching_preview_mode_keeps_ambiguous_files_unselected(tmp_path: Path)
     assert not move_preview.items[0].selected
 
 
+def test_explicit_select_all_includes_ambiguous_matches(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    create_file(source / "TheOfficeUS.S01E01.mkv", b"ambiguous")
+    create_file(source / "TheOfficeS01E01.mkv", b"exact")
+
+    scan = scan_series("The Office", source, destination)
+    selected = scan.with_all_selectable_items_selected()
+
+    assert sum(item.selected for item in scan.items) == 1
+    assert sum(item.selected for item in selected.items) == 2
+    assert {item.match_quality for item in selected.items if item.selected} == {"exact", "ambiguous"}
+
+
 def test_identical_content_from_different_sources_is_copied_once(tmp_path: Path) -> None:
     source = tmp_path / "source"
     destination = tmp_path / "destination"
